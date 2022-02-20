@@ -19,16 +19,15 @@ namespace Ryujinx.Graphics.Shader.StructuredIr
 
         public static VariableType GetVarType(OperandType type)
         {
-            return type switch
+            switch (type)
             {
-                OperandType.Argument => VariableType.S32,
-                OperandType.Attribute => VariableType.F32,
-                OperandType.AttributePerPatch => VariableType.F32,
-                OperandType.Constant => VariableType.S32,
-                OperandType.ConstantBuffer => VariableType.F32,
-                OperandType.Undefined => VariableType.S32,
-                _ => throw new ArgumentException($"Invalid operand type \"{type}\".")
-            };
+                case OperandType.Attribute:      return VariableType.F32;
+                case OperandType.Constant:       return VariableType.S32;
+                case OperandType.ConstantBuffer: return VariableType.F32;
+                case OperandType.Undefined:      return VariableType.S32;
+            }
+
+            throw new ArgumentException($"Invalid operand type \"{type}\".");
         }
     }
 }

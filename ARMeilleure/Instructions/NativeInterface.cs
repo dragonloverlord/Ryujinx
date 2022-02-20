@@ -242,11 +242,6 @@ namespace ARMeilleure.Instructions
             return (ulong)function.FuncPtr.ToInt64();
         }
 
-        public static void InvalidateCacheLine(ulong address)
-        {
-            Context.Translator.InvalidateJitCacheRegion(address, InstEmit.DczSizeInBytes);
-        }
-
         public static bool CheckSynchronization()
         {
             Statistics.PauseTimer();

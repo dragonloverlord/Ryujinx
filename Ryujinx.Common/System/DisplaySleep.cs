@@ -18,7 +18,7 @@ namespace Ryujinx.Common.System
 
         static public void Prevent()
         {
-            if (OperatingSystem.IsWindows())
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 SetThreadExecutionState(EXECUTION_STATE.ES_CONTINUOUS | EXECUTION_STATE.ES_SYSTEM_REQUIRED | EXECUTION_STATE.ES_DISPLAY_REQUIRED);
             }
@@ -26,7 +26,7 @@ namespace Ryujinx.Common.System
         
         static public void Restore()
         {
-            if (OperatingSystem.IsWindows())
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 SetThreadExecutionState(EXECUTION_STATE.ES_CONTINUOUS);  
             }

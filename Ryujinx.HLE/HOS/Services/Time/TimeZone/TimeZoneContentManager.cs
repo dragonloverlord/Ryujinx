@@ -3,8 +3,7 @@ using LibHac.Common;
 using LibHac.Fs;
 using LibHac.Fs.Fsa;
 using LibHac.FsSystem;
-using LibHac.Tools.FsSystem;
-using LibHac.Tools.FsSystem.NcaUtils;
+using LibHac.FsSystem.NcaUtils;
 using Ryujinx.Common.Logging;
 using Ryujinx.HLE.Exceptions;
 using Ryujinx.HLE.FileSystem;
@@ -92,11 +91,9 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
                     Nca         nca              = new Nca(_virtualFileSystem.KeySet, ncaFileStream);
                     IFileSystem romfs            = nca.OpenFileSystem(NcaSectionType.Data, _fsIntegrityCheckLevel);
 
-                    using var binaryListFile = new UniqueRef<IFile>();
+                    romfs.OpenFile(out IFile binaryListFile, "/binaryList.txt".ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
-                    romfs.OpenFile(ref binaryListFile.Ref(), "/binaryList.txt".ToU8Span(), OpenMode.Read).ThrowIfFailure();
-
-                    StreamReader reader = new StreamReader(binaryListFile.Get.AsStream());
+                    StreamReader reader = new StreamReader(binaryListFile.AsStream());
 
                     List<string> locationNameList = new List<string>();
 
@@ -138,43 +135,44 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
                         continue;
                     }
 
-                    using var tzif = new UniqueRef<IFile>();
-
-                    if (romfs.OpenFile(ref tzif.Ref(), $"/zoneinfo/{locName}".ToU8Span(), OpenMode.Read).IsFailure())
+                    if (romfs.OpenFile(out IFile tzif, $"/zoneinfo/{locName}".ToU8Span(), OpenMode.Read).IsFailure())
                     {
                         Logger.Error?.Print(LogClass.ServiceTime, $"Error opening /zoneinfo/{locName}");
                         continue;
                     }
 
-                    TimeZone.ParseTimeZoneBinary(out TimeZoneRule tzRule, tzif.Get.AsStream());
-
-                    TimeTypeInfo ttInfo;
-                    if (tzRule.TimeCount > 0) // Find the current transition period
+                    using (tzif)
                     {
-                        int fin = 0;
-                        for (int i = 0; i < tzRule.TimeCount; ++i)
+                        TimeZone.ParseTimeZoneBinary(out TimeZoneRule tzRule, tzif.AsStream());
+
+                        TimeTypeInfo ttInfo;
+                        if (tzRule.TimeCount > 0) // Find the current transition period
                         {
-                            if (tzRule.Ats[i] <= now)
+                            int fin = 0;
+                            for (int i = 0; i < tzRule.TimeCount; ++i)
                             {
-                                fin = i;
+                                if (tzRule.Ats[i] <= now)
+                                {
+                                    fin = i;
+                                }
                             }
+                            ttInfo = tzRule.Ttis[tzRule.Types[fin]];
                         }
-                        ttInfo = tzRule.Ttis[tzRule.Types[fin]];
-                    }
-                    else if (tzRule.TypeCount >= 1) // Otherwise, use the first offset in TTInfo
-                    {
-                        ttInfo = tzRule.Ttis[0];
-                    }
-                    else
-                    {
-                        Logger.Error?.Print(LogClass.ServiceTime, $"Couldn't find UTC offset for zone {locName}");
-                        continue;
-                    }
+                        else if (tzRule.TypeCount >= 1) // Otherwise, use the first offset in TTInfo
+                        {
+                            ttInfo = tzRule.Ttis[0];
+                        }
+                        else
+                        {
+                            Logger.Error?.Print(LogClass.ServiceTime, $"Couldn't find UTC offset for zone {locName}");
+                            continue;
+                        }
 
-                    var abbrStart = tzRule.Chars.AsSpan(ttInfo.AbbreviationListIndex);
-                    int abbrEnd = abbrStart.IndexOf('\0');
+                        var abbrStart = tzRule.Chars.AsSpan(ttInfo.AbbreviationListIndex);
+                        int abbrEnd = abbrStart.IndexOf('\0');
 
-                    outList.Add((ttInfo.GmtOffset, locName, abbrStart.Slice(0, abbrEnd).ToString()));
+                        outList.Add((ttInfo.GmtOffset, locName, abbrStart.Slice(0, abbrEnd).ToString()));
+                    }
                 }
             }
 
@@ -264,11 +262,9 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             Nca         nca   = new Nca(_virtualFileSystem.KeySet, ncaFile);
             IFileSystem romfs = nca.OpenFileSystem(NcaSectionType.Data, _fsIntegrityCheckLevel);
 
-            using var timeZoneBinaryFile = new UniqueRef<IFile>();
+            Result result = romfs.OpenFile(out IFile timeZoneBinaryFile, $"/zoneinfo/{locationName}".ToU8Span(), OpenMode.Read);
 
-            Result result = romfs.OpenFile(ref timeZoneBinaryFile.Ref(), $"/zoneinfo/{locationName}".ToU8Span(), OpenMode.Read);
-
-            timeZoneBinaryStream = timeZoneBinaryFile.Release().AsStream();
+            timeZoneBinaryStream = timeZoneBinaryFile.AsStream();
 
             return (ResultCode)result.Value;
         }

@@ -1,17 +1,18 @@
-﻿using System.Security.Cryptography;
+﻿using System;
+using System.Security.Cryptography;
 
 namespace Ryujinx.HLE.HOS.Services.Spl
 {
     [Service("csrng")]
     class IRandomInterface : DisposableIpcService
     {
-        private RandomNumberGenerator _rng;
+        private RNGCryptoServiceProvider _rng;
 
         private object _lock = new object();
 
         public IRandomInterface(ServiceCtx context)
         {
-            _rng = RandomNumberGenerator.Create();
+            _rng = new RNGCryptoServiceProvider();
         }
 
         [CommandHipc(0)]

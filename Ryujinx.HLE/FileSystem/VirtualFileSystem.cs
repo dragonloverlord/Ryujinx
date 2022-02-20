@@ -8,9 +8,6 @@ using LibHac.FsSrv;
 using LibHac.FsSystem;
 using LibHac.Ncm;
 using LibHac.Spl;
-using LibHac.Tools.Es;
-using LibHac.Tools.Fs;
-using LibHac.Tools.FsSystem;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
 using Ryujinx.HLE.FileSystem.Content;
@@ -20,8 +17,6 @@ using System.Buffers.Text;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
-
-using Path = System.IO.Path;
 using RightsId = LibHac.Fs.RightsId;
 
 namespace Ryujinx.HLE.FileSystem
@@ -245,13 +240,11 @@ namespace Ryujinx.HLE.FileSystem
         {
             foreach (DirectoryEntryEx ticketEntry in fs.EnumerateEntries("/", "*.tik"))
             {
-                using var ticketFile = new UniqueRef<IFile>();
-
-                Result result = fs.OpenFile(ref ticketFile.Ref(), ticketEntry.FullPath.ToU8Span(), OpenMode.Read);
+                Result result = fs.OpenFile(out IFile ticketFile, ticketEntry.FullPath.ToU8Span(), OpenMode.Read);
 
                 if (result.IsSuccess())
                 {
-                    Ticket ticket = new Ticket(ticketFile.Get.AsStream());
+                    Ticket ticket = new Ticket(ticketFile.AsStream());
 
                     if (ticket.TitleKeyType == TitleKeyType.Common)
                     {
@@ -287,14 +280,12 @@ namespace Ryujinx.HLE.FileSystem
         {
             Span<SaveDataInfo> info = stackalloc SaveDataInfo[8];
 
-            using var iterator = new UniqueRef<SaveDataIterator>();
-
-            Result rc = hos.Fs.OpenSaveDataIterator(ref iterator.Ref(), spaceId);
+            Result rc = hos.Fs.OpenSaveDataIterator(out var iterator, spaceId);
             if (rc.IsFailure()) return rc;
 
             while (true)
             {
-                rc = iterator.Get.ReadSaveDataInfo(out long count, info);
+                rc = iterator.ReadSaveDataInfo(out long count, info);
                 if (rc.IsFailure()) return rc;
 
                 if (count == 0)
@@ -505,9 +496,7 @@ namespace Ryujinx.HLE.FileSystem
 
             bool canFixBySaveDataId = extraData.Attribute.StaticSaveDataId == 0 && info.StaticSaveDataId != 0;
 
-            bool hasEmptyOwnerId = extraData.OwnerId == 0 && info.Type != LibHac.Fs.SaveDataType.System;
-
-            if (!canFixByProgramId && !canFixBySaveDataId && !hasEmptyOwnerId)
+            if (!canFixByProgramId && !canFixBySaveDataId)
             {
                 wasFixNeeded = false;
                 return Result.Success;

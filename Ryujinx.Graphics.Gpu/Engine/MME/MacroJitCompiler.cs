@@ -112,7 +112,7 @@ namespace Ryujinx.Graphics.Gpu.Engine.MME
                 _ilGen.Emit(OpCodes.Ret);
             }
 
-            return _meth.CreateDelegate<MacroExecute>();
+            return (MacroExecute)_meth.CreateDelegate(typeof(MacroExecute));
         }
 
         /// <summary>

@@ -1,3 +1,4 @@
+using Ryujinx.Graphics.Shader;
 using System;
 
 namespace Ryujinx.Graphics.GAL
@@ -14,9 +15,9 @@ namespace Ryujinx.Graphics.GAL
 
         void ClearRenderTargetDepthStencil(
             float depthValue,
-            bool depthMask,
-            int stencilValue,
-            int stencilMask);
+            bool  depthMask,
+            int   stencilValue,
+            int   stencilMask);
 
         void CommandBufferBarrier();
 
@@ -31,7 +32,6 @@ namespace Ryujinx.Graphics.GAL
             int firstIndex,
             int firstVertex,
             int firstInstance);
-        void DrawTexture(ITexture texture, ISampler sampler, Extents2DF srcRegion, Extents2DF dstRegion);
 
         void EndTransformFeedback();
 
@@ -55,14 +55,10 @@ namespace Ryujinx.Graphics.GAL
 
         void SetImage(int binding, ITexture texture, Format imageFormat);
 
-        void SetLineParameters(float width, bool smooth);
-
         void SetLogicOpState(bool enable, LogicalOp op);
 
-        void SetPatchParameters(int vertices, ReadOnlySpan<float> defaultOuterLevel, ReadOnlySpan<float> defaultInnerLevel);
+        void SetLineParameters(float width, bool smooth);
         void SetPointParameters(float size, bool isProgramPointSize, bool enablePointSprite, Origin origin);
-
-        void SetPolygonMode(PolygonMode frontMode, PolygonMode backMode);
 
         void SetPrimitiveRestart(bool enable, int index);
 
@@ -103,6 +99,6 @@ namespace Ryujinx.Graphics.GAL
         bool TryHostConditionalRendering(ICounterEvent value, ICounterEvent compare, bool isEqual);
         void EndHostConditionalRendering();
 
-        void UpdateRenderScale(ReadOnlySpan<float> scales, int totalCount, int fragmentCount);
+        void UpdateRenderScale(ShaderStage stage, ReadOnlySpan<float> scales, int textureCount, int imageCount);
     }
 }

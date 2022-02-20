@@ -78,7 +78,7 @@ namespace Ryujinx.Audio.Renderer.Dsp
             }
         }
 
-        public void Start(IHardwareDeviceDriver deviceDriver, float volume)
+        public void Start(IHardwareDeviceDriver deviceDriver)
         {
             OutputDevices = new IHardwareDevice[Constants.AudioRendererSessionCountMax];
 
@@ -89,7 +89,7 @@ namespace Ryujinx.Audio.Renderer.Dsp
             for (int i = 0; i < OutputDevices.Length; i++)
             {
                 // TODO: Don't hardcode sample rate.
-                OutputDevices[i] = new HardwareDeviceImpl(deviceDriver, channelCount, Constants.TargetSampleRate, volume);
+                OutputDevices[i] = new HardwareDeviceImpl(deviceDriver, channelCount, Constants.TargetSampleRate);
             }
 
             _mailbox = new Mailbox<MailboxMessage>();
@@ -243,33 +243,6 @@ namespace Ryujinx.Audio.Renderer.Dsp
 
             Logger.Info?.Print(LogClass.AudioRenderer, "Stopping audio processor");
             _mailbox.SendResponse(MailboxMessage.Stop);
-        }
-
-        public float GetVolume()
-        {
-            if (OutputDevices != null)
-            {
-                foreach (IHardwareDevice outputDevice in OutputDevices)
-                {
-                    if (outputDevice != null)
-                    {
-                        return outputDevice.GetVolume();
-                    }
-                }
-            }
-
-            return 0f;
-        }
-
-        public void SetVolume(float volume)
-        {
-            if (OutputDevices != null)
-            {
-                foreach (IHardwareDevice outputDevice in OutputDevices)
-                {
-                    outputDevice?.SetVolume(volume);
-                }
-            }
         }
 
         public void Dispose()

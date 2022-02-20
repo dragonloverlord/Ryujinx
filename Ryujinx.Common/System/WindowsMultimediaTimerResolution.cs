@@ -2,14 +2,12 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 
 namespace Ryujinx.Common.System
 {
     /// <summary>
     /// Handle Windows Multimedia timer resolution.
     /// </summary>
-    [SupportedOSPlatform("windows")]
     public class WindowsMultimediaTimerResolution : IDisposable
     {
         [StructLayout(LayoutKind.Sequential)]

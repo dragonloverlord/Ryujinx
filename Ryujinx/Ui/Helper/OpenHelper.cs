@@ -1,6 +1,6 @@
 ﻿using Ryujinx.Common.Logging;
-using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Ryujinx.Ui.Helper
 {
@@ -18,15 +18,15 @@ namespace Ryujinx.Ui.Helper
 
         public static void OpenUrl(string url)
         {
-            if (OperatingSystem.IsWindows())
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 Process.Start(new ProcessStartInfo("cmd", $"/c start {url.Replace("&", "^&")}"));
             }
-            else if (OperatingSystem.IsLinux())
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 Process.Start("xdg-open", url);
             }
-            else if (OperatingSystem.IsMacOS())
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 Process.Start("open", url);
             }

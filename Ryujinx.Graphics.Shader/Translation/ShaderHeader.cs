@@ -36,6 +36,37 @@ namespace Ryujinx.Graphics.Shader.Translation
         }
     }
 
+    struct OmapTarget
+    {
+        public bool Red   { get; }
+        public bool Green { get; }
+        public bool Blue  { get; }
+        public bool Alpha { get; }
+
+        public bool Enabled => Red || Green || Blue || Alpha;
+
+        public OmapTarget(bool red, bool green, bool blue, bool alpha)
+        {
+            Red   = red;
+            Green = green;
+            Blue  = blue;
+            Alpha = alpha;
+        }
+
+        public bool ComponentEnabled(int component)
+        {
+            switch (component)
+            {
+                case 0: return Red;
+                case 1: return Green;
+                case 2: return Blue;
+                case 3: return Alpha;
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(component));
+        }
+    }
+
     class ShaderHeader
     {
         public int SphType { get; }
@@ -54,7 +85,7 @@ namespace Ryujinx.Graphics.Shader.Translation
         public bool GpPassthrough { get; }
 
         public bool DoesLoadOrStore { get; }
-        public bool DoesFp64 { get; }
+        public bool DoesFp64        { get; }
 
         public int StreamOutMask { get; }
 
@@ -73,13 +104,13 @@ namespace Ryujinx.Graphics.Shader.Translation
         public int MaxOutputVertexCount { get; }
 
         public int StoreReqStart { get; }
-        public int StoreReqEnd { get; }
+        public int StoreReqEnd   { get; }
 
         public ImapPixelType[] ImapTypes { get; }
 
-        public int OmapTargets { get; }
-        public bool OmapSampleMask { get; }
-        public bool OmapDepth { get; }
+        public OmapTarget[] OmapTargets    { get; }
+        public bool         OmapSampleMask { get; }
+        public bool         OmapDepth      { get; }
 
         public ShaderHeader(IGpuAccessor gpuAccessor, ulong address)
         {
@@ -113,7 +144,7 @@ namespace Ryujinx.Graphics.Shader.Translation
             GpPassthrough = commonWord0.Extract(24);
 
             DoesLoadOrStore = commonWord0.Extract(26);
-            DoesFp64 = commonWord0.Extract(27);
+            DoesFp64        = commonWord0.Extract(27);
 
             StreamOutMask = commonWord0.Extract(28, 4);
 
@@ -132,7 +163,7 @@ namespace Ryujinx.Graphics.Shader.Translation
             MaxOutputVertexCount = commonWord4.Extract(0, 12);
 
             StoreReqStart = commonWord4.Extract(12, 8);
-            StoreReqEnd = commonWord4.Extract(24, 8);
+            StoreReqEnd   = commonWord4.Extract(24, 8);
 
             ImapTypes = new ImapPixelType[32];
 
@@ -148,11 +179,21 @@ namespace Ryujinx.Graphics.Shader.Translation
             }
 
             int type2OmapTarget = header[18];
-            int type2Omap = header[19];
+            int type2Omap       = header[19];
 
-            OmapTargets = type2OmapTarget;
+            OmapTargets = new OmapTarget[8];
+
+            for (int offset = 0; offset < OmapTargets.Length * 4; offset += 4)
+            {
+                OmapTargets[offset >> 2] = new OmapTarget(
+                    type2OmapTarget.Extract(offset + 0),
+                    type2OmapTarget.Extract(offset + 1),
+                    type2OmapTarget.Extract(offset + 2),
+                    type2OmapTarget.Extract(offset + 3));
+            }
+
             OmapSampleMask = type2Omap.Extract(0);
-            OmapDepth = type2Omap.Extract(1);
+            OmapDepth      = type2Omap.Extract(1);
         }
     }
 }

@@ -19,28 +19,6 @@ namespace Ryujinx.Graphics.Gpu.Image
         private int _firstLevel;
         private int _firstLayer;
 
-        // Sync state for texture flush.
-
-        /// <summary>
-        /// The sync number last registered.
-        /// </summary>
-        private ulong _registeredSync;
-
-        /// <summary>
-        /// The sync number when the texture was last modified by GPU.
-        /// </summary>
-        private ulong _modifiedSync;
-
-        /// <summary>
-        /// Whether a tracking action is currently registered or not.
-        /// </summary>
-        private bool _actionRegistered;
-
-        /// <summary>
-        /// Whether a sync action is currently registered or not.
-        /// </summary>
-        private bool _syncActionRegistered;
-
         /// <summary>
         /// The byte offset from the start of the storage of this handle.
         /// </summary>
@@ -50,16 +28,6 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// The size in bytes covered by this handle.
         /// </summary>
         public int Size { get; }
-
-        /// <summary>
-        /// The base slice index for this handle.
-        /// </summary>
-        public int BaseSlice { get; }
-
-        /// <summary>
-        /// The number of slices covered by this handle.
-        /// </summary>
-        public int SliceCount { get; }
 
         /// <summary>
         /// The textures which this handle overlaps with.
@@ -100,18 +68,8 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// <param name="views">All views of the storage texture, used to calculate overlaps</param>
         /// <param name="firstLayer">The first layer of this handle in the storage texture</param>
         /// <param name="firstLevel">The first level of this handle in the storage texture</param>
-        /// <param name="baseSlice">The base slice index of this handle</param>
-        /// <param name="sliceCount">The number of slices this handle covers</param>
         /// <param name="handles">The memory tracking handles that cover this handle</param>
-        public TextureGroupHandle(TextureGroup group,
-                                  int offset,
-                                  ulong size,
-                                  List<Texture> views,
-                                  int firstLayer,
-                                  int firstLevel,
-                                  int baseSlice,
-                                  int sliceCount,
-                                  CpuRegionHandle[] handles)
+        public TextureGroupHandle(TextureGroup group, int offset, ulong size, List<Texture> views, int firstLayer, int firstLevel, CpuRegionHandle[] handles)
         {
             _group = group;
             _firstLayer = firstLayer;
@@ -121,9 +79,6 @@ namespace Ryujinx.Graphics.Gpu.Image
             Size = (int)size;
             Overlaps = new List<Texture>();
             Dependencies = new List<TextureDependency>();
-
-            BaseSlice = baseSlice;
-            SliceCount = sliceCount;
 
             if (views != null)
             {
@@ -159,31 +114,9 @@ namespace Ryujinx.Graphics.Gpu.Image
         }
 
         /// <summary>
-        /// Registers a sync action to happen for this handle, and an interim flush action on the tracking handle.
-        /// </summary>
-        /// <param name="context">The GPU context to register a sync action on</param>
-        private void RegisterSync(GpuContext context)
-        {
-            if (!_syncActionRegistered)
-            {
-                _modifiedSync = context.SyncNumber;
-                context.RegisterSyncAction(SyncAction, true);
-                _syncActionRegistered = true;
-            }
-
-            if (!_actionRegistered)
-            {
-                _group.RegisterAction(this);
-
-                _actionRegistered = true;
-            }
-        }
-
-        /// <summary>
         /// Signal that this handle has been modified to any existing dependencies, and set the modified flag.
         /// </summary>
-        /// <param name="context">The GPU context to register a sync action on</param>
-        public void SignalModified(GpuContext context)
+        public void SignalModified()
         {
             Modified = true;
 
@@ -193,18 +126,15 @@ namespace Ryujinx.Graphics.Gpu.Image
             {
                 dependency.SignalModified();
             }
-
-            RegisterSync(context);
         }
 
         /// <summary>
         /// Signal that this handle has either started or ended being modified.
         /// </summary>
         /// <param name="bound">True if this handle is being bound, false if unbound</param>
-        /// <param name="context">The GPU context to register a sync action on</param>
-        public void SignalModifying(bool bound, GpuContext context)
+        public void SignalModifying(bool bound)
         {
-            SignalModified(context);
+            SignalModified();
 
             // Note: Bind count currently resets to 0 on inherit for safety, as the handle <-> view relationship can change.
             _bindCount = Math.Max(0, _bindCount + (bound ? 1 : -1));
@@ -227,68 +157,11 @@ namespace Ryujinx.Graphics.Gpu.Image
         }
 
         /// <summary>
-        /// Wait for the latest sync number that the texture handle was written to,
-        /// removing the modified flag if it was reached, or leaving it set if it has not yet been created.
-        /// </summary>
-        /// <param name="context">The GPU context used to wait for sync</param>
-        public void Sync(GpuContext context)
-        {
-            _actionRegistered = false;
-
-            bool needsSync = !context.IsGpuThread();
-
-            if (needsSync)
-            {
-                ulong registeredSync = _registeredSync;
-                long diff = (long)(context.SyncNumber - registeredSync);
-
-                if (diff > 0)
-                {
-                    context.Renderer.WaitSync(registeredSync);
-
-                    if ((long)(_modifiedSync - registeredSync) > 0)
-                    {
-                        // Flush the data in a previous state. Do not remove the modified flag - it will be removed to ignore following writes.
-                        return;
-                    }
-
-                    Modified = false;
-                }
-                
-                // If the difference is <= 0, no data is not ready yet. Flush any data we can without waiting or removing modified flag.
-            }
-            else
-            {
-                Modified = false;
-            }
-        }
-
-        /// <summary>
-        /// Action to perform when a sync number is registered after modification.
-        /// This action will register a read tracking action on the memory tracking handle so that a flush from CPU can happen.
-        /// </summary>
-        private void SyncAction()
-        {
-            // Register region tracking for CPU? (again)
-            _registeredSync = _modifiedSync;
-            _syncActionRegistered = false;
-
-            if (!_actionRegistered)
-            {
-                _group.RegisterAction(this);
-
-                _actionRegistered = true;
-            }
-        }
-
-        /// <summary>
         /// Signal that a copy dependent texture has been modified, and must have its data copied to this one.
         /// </summary>
         /// <param name="copyFrom">The texture handle that must defer a copy to this one</param>
         public void DeferCopy(TextureGroupHandle copyFrom)
         {
-            Modified = false;
-
             DeferredCopy = copyFrom;
 
             _group.Storage.SignalGroupDirty();
@@ -374,112 +247,73 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// <summary>
         /// Perform a copy from the provided handle to this one, or perform a deferred copy if none is provided.
         /// </summary>
-        /// <param name="context">GPU context to register sync for modified handles</param>
         /// <param name="fromHandle">The handle to copy from. If not provided, this method will copy from and clear the deferred copy instead</param>
         /// <returns>True if the copy was performed, false otherwise</returns>
-        public bool Copy(GpuContext context, TextureGroupHandle fromHandle = null)
+        public bool Copy(TextureGroupHandle fromHandle = null)
         {
             bool result = false;
-            bool shouldCopy = false;
 
             if (fromHandle == null)
             {
                 fromHandle = DeferredCopy;
 
-                if (fromHandle != null)
+                if (fromHandle != null && fromHandle._bindCount == 0)
                 {
-                    // Only copy if the copy texture is still modified.
-                    // It will be set as unmodified if new data is written from CPU, as the data previously in the texture will flush.
-                    // It will also set as unmodified if a copy is deferred to it.
+                    // Repeat the copy in future if the bind count is greater than 0.
+                    DeferredCopy = null;
+                }
+            }
 
-                    shouldCopy = fromHandle.Modified;
+            if (fromHandle != null)
+            {
+                // If the copy texture is dirty, do not copy. Its data no longer matters, and this handle should also be dirty.
+                if (!fromHandle.CheckDirty())
+                {
+                    Texture from = fromHandle._group.Storage;
+                    Texture to = _group.Storage;
 
-                    if (fromHandle._bindCount == 0)
+                    if (from.ScaleFactor != to.ScaleFactor)
                     {
-                        // Repeat the copy in future if the bind count is greater than 0.
-                        DeferredCopy = null;
+                        to.PropagateScale(from);
                     }
-                }
-            }
-            else
-            {
-                // Copies happen directly when initializing a copy dependency.
-                // If dirty, do not copy. Its data no longer matters, and this handle should also be dirty.
-                // Also, only direct copy if the data in this handle is not already modified (can be set by copies from modified handles).
-                shouldCopy = !fromHandle.CheckDirty() && (fromHandle.Modified || !Modified);
-            }
 
-            if (shouldCopy)
-            {
-                Texture from = fromHandle._group.Storage;
-                Texture to = _group.Storage;
+                    from.HostTexture.CopyTo(
+                        to.HostTexture,
+                        fromHandle._firstLayer,
+                        _firstLayer,
+                        fromHandle._firstLevel,
+                        _firstLevel);
 
-                if (from.ScaleFactor != to.ScaleFactor)
-                {
-                    to.PropagateScale(from);
-                }
-
-                from.HostTexture.CopyTo(
-                    to.HostTexture,
-                    fromHandle._firstLayer,
-                    _firstLayer,
-                    fromHandle._firstLevel,
-                    _firstLevel);
-
-                if (fromHandle.Modified)
-                {
                     Modified = true;
 
-                    RegisterSync(context);
-                }
+                    _group.RegisterAction(this);
 
-                result = true;
+                    result = true;
+                }
             }
 
             return result;
         }
 
         /// <summary>
-        /// Check if this handle has a dependency to a given texture group.
-        /// </summary>
-        /// <param name="group">The texture group to check for</param>
-        /// <returns>True if there is a dependency, false otherwise</returns>
-        public bool HasDependencyTo(TextureGroup group)
-        {
-            foreach (TextureDependency dep in Dependencies)
-            {
-                if (dep.Other.Handle._group == group)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
         /// Inherit modified flags and dependencies from another texture handle.
         /// </summary>
         /// <param name="old">The texture handle to inherit from</param>
-        /// <param name="withCopies">Whether the handle should inherit copy dependencies or not</param>
-        public void Inherit(TextureGroupHandle old, bool withCopies)
+        public void Inherit(TextureGroupHandle old)
         {
             Modified |= old.Modified;
 
-            if (withCopies)
+            foreach (TextureDependency dependency in old.Dependencies.ToArray())
             {
-                foreach (TextureDependency dependency in old.Dependencies.ToArray())
+                CreateCopyDependency(dependency.Other.Handle);
+
+                if (dependency.Other.Handle.DeferredCopy == old)
                 {
-                    CreateCopyDependency(dependency.Other.Handle);
-
-                    if (dependency.Other.Handle.DeferredCopy == old)
-                    {
-                        dependency.Other.Handle.DeferredCopy = this;
-                    }
+                    dependency.Other.Handle.DeferredCopy = this;
                 }
-
-                DeferredCopy = old.DeferredCopy;
             }
+
+            DeferredCopy = old.DeferredCopy;
         }
 
         /// <summary>
@@ -493,9 +327,6 @@ namespace Ryujinx.Graphics.Gpu.Image
             return Offset < offset + size && offset < Offset + Size;
         }
 
-        /// <summary>
-        /// Dispose this texture group handle, removing all its dependencies and disposing its memory tracking handles.
-        /// </summary>
         public void Dispose()
         {
             foreach (CpuRegionHandle handle in Handles)

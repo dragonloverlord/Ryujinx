@@ -61,21 +61,6 @@ namespace Ryujinx.Graphics.Shader
             return 16;
         }
 
-        bool QueryHostSupportsBgraFormat()
-        {
-            return true;
-        }
-
-        bool QueryHostSupportsFragmentShaderInterlock()
-        {
-            return true;
-        }
-
-        bool QueryHostSupportsFragmentShaderOrderingIntel()
-        {
-            return false;
-        }
-
         bool QueryHostSupportsImageLoadFormatted()
         {
             return true;
@@ -111,39 +96,9 @@ namespace Ryujinx.Graphics.Shader
             return InputTopology.Points;
         }
 
-        bool QueryTessCw()
-        {
-            return false;
-        }
-
-        TessPatchType QueryTessPatchType()
-        {
-            return TessPatchType.Triangles;
-        }
-
-        TessSpacing QueryTessSpacing()
-        {
-            return TessSpacing.EqualSpacing;
-        }
-
         TextureFormat QueryTextureFormat(int handle, int cbufSlot = -1)
         {
             return TextureFormat.R8G8B8A8Unorm;
-        }
-
-        bool QueryTransformFeedbackEnabled()
-        {
-            return false;
-        }
-
-        ReadOnlySpan<byte> QueryTransformFeedbackVaryingLocations(int bufferIndex)
-        {
-            return ReadOnlySpan<byte>.Empty;
-        }
-
-        int QueryTransformFeedbackStride(int bufferIndex)
-        {
-            return 0;
         }
 
         bool QueryEarlyZForce()

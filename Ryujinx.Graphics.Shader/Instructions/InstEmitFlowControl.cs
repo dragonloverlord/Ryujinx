@@ -22,7 +22,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
         {
             InstBrk op = context.GetOp<InstBrk>();
 
-            EmitBrkContSync(context);
+            EmitBrkOrSync(context);
         }
 
         public static void Brx(EmitterContext context)
@@ -67,31 +67,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
         {
             InstCal op = context.GetOp<InstCal>();
 
-            DecodedFunction function = context.Program.GetFunctionByAddress(context.CurrOp.GetAbsoluteAddress());
-
-            if (function.IsCompilerGenerated)
-            {
-                switch (function.Type)
-                {
-                    case FunctionType.BuiltInFSIBegin:
-                        context.FSIBegin();
-                        break;
-                    case FunctionType.BuiltInFSIEnd:
-                        context.FSIEnd();
-                        break;
-                }
-            }
-            else
-            {
-                context.Call(function.Id, false);
-            }
-        }
-
-        public static void Cont(EmitterContext context)
-        {
-            InstCont op = context.GetOp<InstCont>();
-
-            EmitBrkContSync(context);
+            context.Call(context.GetFunctionId(context.CurrOp.GetAbsoluteAddress()), false);
         }
 
         public static void Exit(EmitterContext context)
@@ -123,14 +99,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
         {
             InstPbk op = context.GetOp<InstPbk>();
 
-            EmitPbkPcntSsy(context);
-        }
-
-        public static void Pcnt(EmitterContext context)
-        {
-            InstPcnt op = context.GetOp<InstPcnt>();
-
-            EmitPbkPcntSsy(context);
+            EmitPbkOrSsy(context);
         }
 
         public static void Ret(EmitterContext context)
@@ -151,17 +120,17 @@ namespace Ryujinx.Graphics.Shader.Instructions
         {
             InstSsy op = context.GetOp<InstSsy>();
 
-            EmitPbkPcntSsy(context);
+            EmitPbkOrSsy(context);
         }
 
         public static void Sync(EmitterContext context)
         {
             InstSync op = context.GetOp<InstSync>();
 
-            EmitBrkContSync(context);
+            EmitBrkOrSync(context);
         }
 
-        private static void EmitPbkPcntSsy(EmitterContext context)
+        private static void EmitPbkOrSsy(EmitterContext context)
         {
             var consumers = context.CurrBlock.PushOpCodes.First(x => x.Op.Address == context.CurrOp.Address).Consumers;
 
@@ -176,7 +145,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
             }
         }
 
-        private static void EmitBrkContSync(EmitterContext context)
+        private static void EmitBrkOrSync(EmitterContext context)
         {
             var targets = context.CurrBlock.SyncTargets;
 

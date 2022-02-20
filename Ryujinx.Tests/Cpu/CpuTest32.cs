@@ -106,18 +106,6 @@ namespace Ryujinx.Tests.Cpu
             _currAddress += 4;
         }
 
-        protected void ThumbOpcode(ushort opcode)
-        {
-            _memory.Write(_currAddress, opcode);
-
-            if (_unicornAvailable)
-            {
-                _unicornEmu.MemoryWrite16(_currAddress, opcode);
-            }
-
-            _currAddress += 2;
-        }
-
         protected ExecutionContext GetContext() => _context;
 
         protected void SetContext(uint r0 = 0,
@@ -138,8 +126,7 @@ namespace Ryujinx.Tests.Cpu
                                   bool carry = false,
                                   bool zero = false,
                                   bool negative = false,
-                                  int fpscr = 0,
-                                  bool thumb = false)
+                                  int fpscr = 0)
         {
             _context.SetX(0, r0);
             _context.SetX(1, r1);
@@ -163,8 +150,6 @@ namespace Ryujinx.Tests.Cpu
             _context.SetPstateFlag(PState.NFlag, negative);
 
             SetFpscr((uint)fpscr);
-
-            _context.SetPstateFlag(PState.TFlag, thumb);
 
             if (_unicornAvailable)
             {
@@ -190,8 +175,6 @@ namespace Ryujinx.Tests.Cpu
                 _unicornEmu.NegativeFlag = negative;
 
                 _unicornEmu.Fpscr = fpscr;
-
-                _unicornEmu.ThumbFlag = thumb;
             }
         }
 
@@ -230,28 +213,6 @@ namespace Ryujinx.Tests.Cpu
             Opcode(opcode);
             Opcode(0xE12FFF1E); // BX LR
             SetContext(r0, r1, r2, r3, sp, v0, v1, v2, v3, v4, v5, v14, v15, saturation, overflow, carry, zero, negative, fpscr);
-            ExecuteOpcodes(runUnicorn);
-
-            return GetContext();
-        }
-
-        protected ExecutionContext SingleThumbOpcode(ushort opcode,
-                                                     uint r0 = 0,
-                                                     uint r1 = 0,
-                                                     uint r2 = 0,
-                                                     uint r3 = 0,
-                                                     uint sp = 0,
-                                                     bool saturation = false,
-                                                     bool overflow = false,
-                                                     bool carry = false,
-                                                     bool zero = false,
-                                                     bool negative = false,
-                                                     int fpscr = 0,
-                                                     bool runUnicorn = true)
-        {
-            ThumbOpcode(opcode);
-            ThumbOpcode(0x4770); // BX LR
-            SetContext(r0, r1, r2, r3, sp, default, default, default, default, default, default, default, default, saturation, overflow, carry, zero, negative, fpscr, thumb: true);
             ExecuteOpcodes(runUnicorn);
 
             return GetContext();

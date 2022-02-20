@@ -1,5 +1,4 @@
 using ARMeilleure.CodeGen;
-using ARMeilleure.CodeGen.Optimizations;
 using ARMeilleure.CodeGen.X86;
 using ARMeilleure.Diagnostics;
 using ARMeilleure.IntermediateRepresentation;
@@ -14,40 +13,30 @@ namespace ARMeilleure.Translation
             OperandType      retType,
             CompilerOptions  options)
         {
-            CompilerContext cctx = new(cfg, argTypes, retType, options);
+            Logger.StartPass(PassName.Dominance);
 
-            if (options.HasFlag(CompilerOptions.Optimize))
+            if ((options & CompilerOptions.SsaForm) != 0)
             {
-                Logger.StartPass(PassName.TailMerge);
-
-                TailMerge.RunPass(cctx);
-
-                Logger.EndPass(PassName.TailMerge, cfg);
-            }
-
-            if (options.HasFlag(CompilerOptions.SsaForm))
-            {
-                Logger.StartPass(PassName.Dominance);
-
                 Dominance.FindDominators(cfg);
                 Dominance.FindDominanceFrontiers(cfg);
+            }
 
-                Logger.EndPass(PassName.Dominance);
+            Logger.EndPass(PassName.Dominance);
 
-                Logger.StartPass(PassName.SsaConstruction);
+            Logger.StartPass(PassName.SsaConstruction);
 
+            if ((options & CompilerOptions.SsaForm) != 0)
+            {
                 Ssa.Construct(cfg);
-
-                Logger.EndPass(PassName.SsaConstruction, cfg);
             }
             else
             {
-                Logger.StartPass(PassName.RegisterToLocal);
-
                 RegisterToLocal.Rename(cfg);
-
-                Logger.EndPass(PassName.RegisterToLocal, cfg);
             }
+
+            Logger.EndPass(PassName.SsaConstruction, cfg);
+
+            CompilerContext cctx = new(cfg, argTypes, retType, options);
 
             return CodeGenerator.Generate(cctx);
         }

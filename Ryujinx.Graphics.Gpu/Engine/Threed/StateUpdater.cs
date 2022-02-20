@@ -64,21 +64,13 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                     nameof(ThreedClassState.ShaderState)),
 
                 new StateUpdateCallbackEntry(UpdateRasterizerState, nameof(ThreedClassState.RasterizeEnable)),
-
-                new StateUpdateCallbackEntry(UpdateScissorState,
-                    nameof(ThreedClassState.ScissorState),
-                    nameof(ThreedClassState.ScreenScissorState)),
+                new StateUpdateCallbackEntry(UpdateScissorState, nameof(ThreedClassState.ScissorState)),
 
                 new StateUpdateCallbackEntry(UpdateVertexBufferState,
                     nameof(ThreedClassState.VertexBufferDrawState),
                     nameof(ThreedClassState.VertexBufferInstanced),
                     nameof(ThreedClassState.VertexBufferState),
                     nameof(ThreedClassState.VertexBufferEndAddress)),
-
-                new StateUpdateCallbackEntry(UpdateTessellationState,
-                    nameof(ThreedClassState.TessOuterLevel),
-                    nameof(ThreedClassState.TessInnerLevel),
-                    nameof(ThreedClassState.PatchVertices)),
 
                 new StateUpdateCallbackEntry(UpdateTfBufferState, nameof(ThreedClassState.TfBufferState)),
                 new StateUpdateCallbackEntry(UpdateUserClipState, nameof(ThreedClassState.ClipDistanceEnable)),
@@ -107,10 +99,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                     nameof(ThreedClassState.ViewportTransform),
                     nameof(ThreedClassState.ViewportExtents),
                     nameof(ThreedClassState.YControl)),
-
-                new StateUpdateCallbackEntry(UpdatePolygonMode,
-                    nameof(ThreedClassState.PolygonModeFront),
-                    nameof(ThreedClassState.PolygonModeBack)),
 
                 new StateUpdateCallbackEntry(UpdateDepthBiasState,
                     nameof(ThreedClassState.DepthBiasState),
@@ -272,17 +260,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         }
 
         /// <summary>
-        /// Updates tessellation state based on the guest GPU state.
-        /// </summary>
-        private void UpdateTessellationState()
-        {
-            _context.Renderer.Pipeline.SetPatchParameters(
-                _state.State.PatchVertices,
-                _state.State.TessOuterLevel.ToSpan(),
-                _state.State.TessInnerLevel.ToSpan());
-        }
-
-        /// <summary>
         /// Updates transform feedback buffer state based on the guest GPU state.
         /// </summary>
         private void UpdateTfBufferState()
@@ -339,9 +316,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
             var scissor = _state.State.ScreenScissorState;
             Size sizeHint = new Size(scissor.X + scissor.Width, scissor.Y + scissor.Height, 1);
 
-            int clipRegionWidth = int.MaxValue;
-            int clipRegionHeight = int.MaxValue;
-
             bool changedScale = false;
 
             for (int index = 0; index < Constants.TotalRenderTargets; index++)
@@ -366,19 +340,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                     sizeHint);
 
                 changedScale |= _channel.TextureManager.SetRenderTargetColor(index, color);
-
-                if (color != null)
-                {
-                    if (clipRegionWidth > color.Width / samplesInX)
-                    {
-                        clipRegionWidth = color.Width / samplesInX;
-                    }
-
-                    if (clipRegionHeight > color.Height / samplesInY)
-                    {
-                        clipRegionHeight = color.Height / samplesInY;
-                    }
-                }
             }
 
             bool dsEnable = _state.State.RtDepthStencilEnable;
@@ -397,19 +358,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                     samplesInX,
                     samplesInY,
                     sizeHint);
-
-                if (depthStencil != null)
-                {
-                    if (clipRegionWidth > depthStencil.Width / samplesInX)
-                    {
-                        clipRegionWidth = depthStencil.Width / samplesInX;
-                    }
-
-                    if (clipRegionHeight > depthStencil.Height / samplesInY)
-                    {
-                        clipRegionHeight = depthStencil.Height / samplesInY;
-                    }
-                }
             }
 
             changedScale |= _channel.TextureManager.SetRenderTargetDepthStencil(depthStencil);
@@ -427,8 +375,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                     UpdateScissorState();
                 }
             }
-
-            _channel.TextureManager.SetClipRegion(clipRegionWidth, clipRegionHeight);
         }
 
         /// <summary>
@@ -445,7 +391,7 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         /// <summary>
         /// Updates host scissor test state based on current GPU state.
         /// </summary>
-        public void UpdateScissorState()
+        private void UpdateScissorState()
         {
             for (int index = 0; index < Constants.TotalViewports; index++)
             {
@@ -460,25 +406,13 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                     int width = scissor.X2 - x;
                     int height = scissor.Y2 - y;
 
-                    if (_state.State.YControl.HasFlag(YControl.NegateY))
-                    {
-                        ref var screenScissor = ref _state.State.ScreenScissorState;
-                        y = screenScissor.Height - height - y;
-
-                        if (y < 0)
-                        {
-                            height += y;
-                            y = 0;
-                        }
-                    }
-
                     float scale = _channel.TextureManager.RenderTargetScale;
                     if (scale != 1f)
                     {
                         x = (int)(x * scale);
                         y = (int)(y * scale);
-                        width = (int)MathF.Ceiling(width * scale);
-                        height = (int)MathF.Ceiling(height * scale);
+                        width = (int)Math.Ceiling(width * scale);
+                        height = (int)Math.Ceiling(height * scale);
                     }
 
                     _context.Renderer.Pipeline.SetScissor(index, true, x, y, width, height);
@@ -531,7 +465,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
             var face = _state.State.FaceState;
 
             UpdateFrontFace(yControl, face.FrontFace);
-            UpdateDepthMode();
 
             bool flipY = yControl.HasFlag(YControl.NegateY);
 
@@ -539,8 +472,8 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
 
             for (int index = 0; index < Constants.TotalViewports; index++)
             {
-                ref var transform = ref _state.State.ViewportTransform[index];
-                ref var extents = ref _state.State.ViewportExtents[index];
+                var transform = _state.State.ViewportTransform[index];
+                var extents = _state.State.ViewportExtents[index];
 
                 float scaleX = MathF.Abs(transform.ScaleX);
                 float scaleY = transform.ScaleY;
@@ -553,6 +486,24 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                 if (!_context.Capabilities.SupportsViewportSwizzle && transform.UnpackSwizzleY() == ViewportSwizzle.NegativeY)
                 {
                     scaleY = -scaleY;
+                }
+
+                if (index == 0)
+                {
+                    // Try to guess the depth mode being used on the high level API
+                    // based on current transform.
+                    // It is setup like so by said APIs:
+                    // If depth mode is ZeroToOne:
+                    //  TranslateZ = Near
+                    //  ScaleZ = Far - Near
+                    // If depth mode is MinusOneToOne:
+                    //  TranslateZ = (Near + Far) / 2
+                    //  ScaleZ = (Far - Near) / 2
+                    // DepthNear/Far are sorted such as that Near is always less than Far.
+                    DepthMode depthMode = extents.DepthNear != transform.TranslateZ &&
+                                          extents.DepthFar != transform.TranslateZ ? DepthMode.MinusOneToOne : DepthMode.ZeroToOne;
+
+                    _context.Renderer.Pipeline.SetDepthMode(depthMode);
                 }
 
                 float x = transform.TranslateX - scaleX;
@@ -591,52 +542,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
             }
 
             _context.Renderer.Pipeline.SetViewports(0, viewports);
-        }
-
-        /// <summary>
-        /// Updates the depth mode (0 to 1 or -1 to 1) based on the current viewport and depth mode register state.
-        /// </summary>
-        private void UpdateDepthMode()
-        {
-            ref var transform = ref _state.State.ViewportTransform[0];
-            ref var extents = ref _state.State.ViewportExtents[0];
-
-            DepthMode depthMode;
-
-            if (!float.IsInfinity(extents.DepthNear) &&
-                !float.IsInfinity(extents.DepthFar) &&
-                (extents.DepthFar - extents.DepthNear) != 0)
-            {
-                // Try to guess the depth mode being used on the high level API
-                // based on current transform.
-                // It is setup like so by said APIs:
-                // If depth mode is ZeroToOne:
-                //  TranslateZ = Near
-                //  ScaleZ = Far - Near
-                // If depth mode is MinusOneToOne:
-                //  TranslateZ = (Near + Far) / 2
-                //  ScaleZ = (Far - Near) / 2
-                // DepthNear/Far are sorted such as that Near is always less than Far.
-                depthMode = extents.DepthNear != transform.TranslateZ &&
-                            extents.DepthFar  != transform.TranslateZ
-                    ? DepthMode.MinusOneToOne
-                    : DepthMode.ZeroToOne;
-            }
-            else
-            {
-                // If we can't guess from the viewport transform, then just use the depth mode register.
-                depthMode = (DepthMode)(_state.State.DepthMode & 1);
-            }
-
-            _context.Renderer.Pipeline.SetDepthMode(depthMode);
-        }
-
-        /// <summary>
-        /// Updates polygon mode state based on current GPU state.
-        /// </summary>
-        private void UpdatePolygonMode()
-        {
-            _context.Renderer.Pipeline.SetPolygonMode(_state.State.PolygonModeFront, _state.State.PolygonModeBack);
         }
 
         /// <summary>
@@ -1044,8 +949,7 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                 _state.State.TexturePoolState.MaximumId,
                 (int)_state.State.TextureBufferIndex,
                 _state.State.EarlyZForce,
-                _drawState.Topology,
-                _state.State.TessMode);
+                _drawState.Topology);
 
             ShaderBundle gs = _channel.MemoryManager.Physical.ShaderCache.GetGraphicsShader(ref _state.State, _channel, gas, addresses);
 

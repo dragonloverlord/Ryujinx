@@ -216,14 +216,13 @@ namespace Ryujinx.Memory
         }
 
         /// <summary>
-        /// Fills a region of memory with <paramref name="value"/>.
+        /// Fills a region of memory with zeros.
         /// </summary>
-        /// <param name="offset">Offset of the region to fill with <paramref name="value"/></param>
+        /// <param name="offset">Offset of the region to fill with zeros</param>
         /// <param name="size">Size in bytes of the region to fill</param>
-        /// <param name="value">Value to use for the fill</param>
         /// <exception cref="ObjectDisposedException">Throw when the memory block has already been disposed</exception>
         /// <exception cref="InvalidMemoryRegionException">Throw when either <paramref name="offset"/> or <paramref name="size"/> are out of range</exception>
-        public void Fill(ulong offset, ulong size, byte value)
+        public void ZeroFill(ulong offset, ulong size)
         {
             const int MaxChunkSize = 1 << 24;
 
@@ -231,7 +230,7 @@ namespace Ryujinx.Memory
             {
                 int copySize = (int)Math.Min(MaxChunkSize, size - subOffset);
 
-                GetSpan(offset + subOffset, copySize).Fill(value);
+                GetSpan(offset + subOffset, copySize).Fill(0);
             }
         }
 

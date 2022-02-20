@@ -59,8 +59,7 @@ namespace Ryujinx.Graphics.Shader.Translation.Optimizations
             Operation operation = (Operation)node.Value;
 
             bool isAtomic = operation.Inst.IsAtomic();
-            bool isStg16Or8 = operation.Inst == Instruction.StoreGlobal16 || operation.Inst == Instruction.StoreGlobal8;
-            bool isWrite = isAtomic || operation.Inst == Instruction.StoreGlobal || isStg16Or8;
+            bool isWrite = isAtomic || operation.Inst == Instruction.StoreGlobal;
 
             config.SetUsedStorageBuffer(storageIndex, isWrite);
 
@@ -79,18 +78,12 @@ namespace Ryujinx.Graphics.Shader.Translation.Optimizations
                 node.List.AddBefore(node, andOp);
 
                 Operand byteOffset = Local();
-                Operation subOp = new Operation(Instruction.Subtract, byteOffset, addrLow, baseAddrTrunc);
-
-                node.List.AddBefore(node, subOp);
-
-                if (isStg16Or8)
-                {
-                    return byteOffset;
-                }
-
                 Operand wordOffset = Local();
+
+                Operation subOp = new Operation(Instruction.Subtract,      byteOffset, addrLow, baseAddrTrunc);
                 Operation shrOp = new Operation(Instruction.ShiftRightU32, wordOffset, byteOffset, Const(2));
 
+                node.List.AddBefore(node, subOp);
                 node.List.AddBefore(node, shrOp);
 
                 return wordOffset;
@@ -120,14 +113,7 @@ namespace Ryujinx.Graphics.Shader.Translation.Optimizations
             }
             else
             {
-                Instruction storeInst = operation.Inst switch
-                {
-                    Instruction.StoreGlobal16 => Instruction.StoreStorage16,
-                    Instruction.StoreGlobal8 => Instruction.StoreStorage8,
-                    _ => Instruction.StoreStorage
-                };
-
-                storageOp = new Operation(storeInst, null, sources);
+                storageOp = new Operation(Instruction.StoreStorage, null, sources);
             }
 
             for (int index = 0; index < operation.SourcesCount; index++)

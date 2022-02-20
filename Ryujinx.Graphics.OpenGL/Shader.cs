@@ -7,7 +7,6 @@ namespace Ryujinx.Graphics.OpenGL
     class Shader : IShader
     {
         public int Handle { get; private set; }
-        public bool IsFragment { get; }
 
         public Shader(ShaderStage stage, string code)
         {
@@ -23,7 +22,6 @@ namespace Ryujinx.Graphics.OpenGL
             };
 
             Handle = GL.CreateShader(type);
-            IsFragment = stage == ShaderStage.Fragment;
 
             GL.ShaderSource(Handle, code);
             GL.CompileShader(Handle);

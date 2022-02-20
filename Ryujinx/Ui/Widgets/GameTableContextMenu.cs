@@ -6,11 +6,9 @@ using LibHac.Fs;
 using LibHac.Fs.Fsa;
 using LibHac.Fs.Shim;
 using LibHac.FsSystem;
+using LibHac.FsSystem.NcaUtils;
 using LibHac.Ncm;
 using LibHac.Ns;
-using LibHac.Tools.Fs;
-using LibHac.Tools.FsSystem;
-using LibHac.Tools.FsSystem.NcaUtils;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
 using Ryujinx.HLE.FileSystem;
@@ -239,17 +237,15 @@ namespace Ryujinx.Ui.Widgets
 
                             foreach (DirectoryEntryEx fileEntry in pfs.EnumerateEntries("/", "*.nca"))
                             {
-                                using var ncaFile = new UniqueRef<IFile>();
+                                pfs.OpenFile(out IFile ncaFile, fileEntry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
-                                pfs.OpenFile(ref ncaFile.Ref(), fileEntry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
-
-                                Nca nca = new Nca(_virtualFileSystem.KeySet, ncaFile.Release().AsStorage());
+                                Nca nca = new Nca(_virtualFileSystem.KeySet, ncaFile.AsStorage());
 
                                 if (nca.Header.ContentType == NcaContentType.Program)
                                 {
                                     int dataIndex = Nca.GetSectionIndexFromType(NcaSectionType.Data, NcaContentType.Program);
 
-                                    if (nca.SectionExists(NcaSectionType.Data) && nca.Header.GetFsHeader(dataIndex).IsPatchSection())
+                                    if (nca.Header.GetFsHeader(dataIndex).IsPatchSection())
                                     {
                                         patchNca = nca;
                                     }
@@ -294,11 +290,8 @@ namespace Ryujinx.Ui.Widgets
                         string source = DateTime.Now.ToFileTime().ToString()[10..];
                         string output = DateTime.Now.ToFileTime().ToString()[10..];
 
-                        using var uniqueSourceFs = new UniqueRef<IFileSystem>(ncaFileSystem);
-                        using var uniqueOutputFs = new UniqueRef<IFileSystem>(new LocalFileSystem(destination));
-
-                        fsClient.Register(source.ToU8Span(), ref uniqueSourceFs.Ref());
-                        fsClient.Register(output.ToU8Span(), ref uniqueOutputFs.Ref());
+                        fsClient.Register(source.ToU8Span(), ncaFileSystem);
+                        fsClient.Register(output.ToU8Span(), new LocalFileSystem(destination));
 
                         (Result? resultCode, bool canceled) = CopyDirectory(fsClient, $"{source}:/", $"{output}:/");
 
@@ -469,11 +462,6 @@ namespace Ryujinx.Ui.Widgets
         private void ManageDlc_Clicked(object sender, EventArgs args)
         {
             new DlcWindow(_virtualFileSystem, _titleIdText, _titleName).Show();
-        }
-
-        private void ManageCheats_Clicked(object sender, EventArgs args)
-        {
-            new CheatWindow(_virtualFileSystem, _titleId, _titleName).Show();
         }
 
         private void OpenTitleModDir_Clicked(object sender, EventArgs args)

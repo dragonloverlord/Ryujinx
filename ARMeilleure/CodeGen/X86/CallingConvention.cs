@@ -151,7 +151,7 @@ namespace ARMeilleure.CodeGen.X86
 
         public static CallConvName GetCurrentCallConv()
         {
-            return OperatingSystem.IsWindows()
+            return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
                 ? CallConvName.Windows
                 : CallConvName.SystemV;
         }

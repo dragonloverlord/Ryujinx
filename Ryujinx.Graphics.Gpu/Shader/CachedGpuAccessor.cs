@@ -13,7 +13,6 @@ namespace Ryujinx.Graphics.Gpu.Shader
         private readonly ReadOnlyMemory<byte> _cb1Data;
         private readonly GuestGpuAccessorHeader _header;
         private readonly Dictionary<int, GuestTextureDescriptor> _textureDescriptors;
-        private readonly TransformFeedbackDescriptor[] _tfd;
 
         /// <summary>
         /// Creates a new instance of the cached GPU state accessor for shader translation.
@@ -28,8 +27,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
             ReadOnlyMemory<byte> data,
             ReadOnlyMemory<byte> cb1Data,
             GuestGpuAccessorHeader header,
-            IReadOnlyDictionary<int, GuestTextureDescriptor> guestTextureDescriptors,
-            TransformFeedbackDescriptor[] tfd) : base(context)
+            IReadOnlyDictionary<int, GuestTextureDescriptor> guestTextureDescriptors) : base(context)
         {
             _data = data;
             _cb1Data = cb1Data;
@@ -40,8 +38,6 @@ namespace Ryujinx.Graphics.Gpu.Shader
             {
                 _textureDescriptors.Add(guestTextureDescriptor.Key, guestTextureDescriptor.Value);
             }
-
-            _tfd = tfd;
         }
 
         /// <summary>
@@ -139,33 +135,6 @@ namespace Ryujinx.Graphics.Gpu.Shader
         }
 
         /// <summary>
-        /// Queries the tessellation evaluation shader primitive winding order.
-        /// </summary>
-        /// <returns>True if the primitive winding order is clockwise, false if counter-clockwise</returns>
-        public bool QueryTessCw()
-        {
-            return (_header.TessellationModePacked & 0x10) != 0;
-        }
-
-        /// <summary>
-        /// Queries the tessellation evaluation shader abstract patch type.
-        /// </summary>
-        /// <returns>Abstract patch type</returns>
-        public TessPatchType QueryTessPatchType()
-        {
-            return (TessPatchType)(_header.TessellationModePacked & 3);
-        }
-
-        /// <summary>
-        /// Queries the tessellation evaluation shader spacing between tessellated vertices of the patch.
-        /// </summary>
-        /// <returns>Spacing between tessellated vertices of the patch</returns>
-        public TessSpacing QueryTessSpacing()
-        {
-            return (TessSpacing)((_header.TessellationModePacked >> 2) & 3);
-        }
-
-        /// <summary>
         /// Gets the texture descriptor for a given texture on the pool.
         /// </summary>
         /// <param name="handle">Index of the texture (this is the word offset of the handle in the constant buffer)</param>
@@ -179,35 +148,6 @@ namespace Ryujinx.Graphics.Gpu.Shader
             }
 
             return textureDescriptor;
-        }
-
-        /// <summary>
-        /// Queries transform feedback enable state.
-        /// </summary>
-        /// <returns>True if the shader uses transform feedback, false otherwise</returns>
-        public bool QueryTransformFeedbackEnabled()
-        {
-            return _tfd != null;
-        }
-
-        /// <summary>
-        /// Queries the varying locations that should be written to the transform feedback buffer.
-        /// </summary>
-        /// <param name="bufferIndex">Index of the transform feedback buffer</param>
-        /// <returns>Varying locations for the specified buffer</returns>
-        public ReadOnlySpan<byte> QueryTransformFeedbackVaryingLocations(int bufferIndex)
-        {
-            return _tfd[bufferIndex].VaryingLocations;
-        }
-
-        /// <summary>
-        /// Queries the stride (in bytes) of the per vertex data written into the transform feedback buffer.
-        /// </summary>
-        /// <param name="bufferIndex">Index of the transform feedback buffer</param>
-        /// <returns>Stride for the specified buffer</returns>
-        public int QueryTransformFeedbackStride(int bufferIndex)
-        {
-            return _tfd[bufferIndex].Stride;
         }
 
         /// <summary>

@@ -50,14 +50,12 @@ namespace Ryujinx.Graphics.OpenGL.Image
                 internalFormat = (SizedInternalFormat)format.PixelInternalFormat;
             }
 
-            int levels = Info.GetLevelsClamped();
-
             switch (Info.Target)
             {
                 case Target.Texture1D:
                     GL.TexStorage1D(
                         TextureTarget1d.Texture1D,
-                        levels,
+                        Info.Levels,
                         internalFormat,
                         Info.Width);
                     break;
@@ -65,7 +63,7 @@ namespace Ryujinx.Graphics.OpenGL.Image
                 case Target.Texture1DArray:
                     GL.TexStorage2D(
                         TextureTarget2d.Texture1DArray,
-                        levels,
+                        Info.Levels,
                         internalFormat,
                         Info.Width,
                         Info.Height);
@@ -74,7 +72,7 @@ namespace Ryujinx.Graphics.OpenGL.Image
                 case Target.Texture2D:
                     GL.TexStorage2D(
                         TextureTarget2d.Texture2D,
-                        levels,
+                        Info.Levels,
                         internalFormat,
                         Info.Width,
                         Info.Height);
@@ -83,7 +81,7 @@ namespace Ryujinx.Graphics.OpenGL.Image
                 case Target.Texture2DArray:
                     GL.TexStorage3D(
                         TextureTarget3d.Texture2DArray,
-                        levels,
+                        Info.Levels,
                         internalFormat,
                         Info.Width,
                         Info.Height,
@@ -114,7 +112,7 @@ namespace Ryujinx.Graphics.OpenGL.Image
                 case Target.Texture3D:
                     GL.TexStorage3D(
                         TextureTarget3d.Texture3D,
-                        levels,
+                        Info.Levels,
                         internalFormat,
                         Info.Width,
                         Info.Height,
@@ -124,7 +122,7 @@ namespace Ryujinx.Graphics.OpenGL.Image
                 case Target.Cubemap:
                     GL.TexStorage2D(
                         TextureTarget2d.TextureCubeMap,
-                        levels,
+                        Info.Levels,
                         internalFormat,
                         Info.Width,
                         Info.Height);
@@ -133,7 +131,7 @@ namespace Ryujinx.Graphics.OpenGL.Image
                 case Target.CubemapArray:
                     GL.TexStorage3D(
                         (TextureTarget3d)All.TextureCubeMapArray,
-                        levels,
+                        Info.Levels,
                         internalFormat,
                         Info.Width,
                         Info.Height,

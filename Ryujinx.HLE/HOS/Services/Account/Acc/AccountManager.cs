@@ -1,5 +1,4 @@
 ﻿using LibHac;
-using LibHac.Common;
 using LibHac.Fs;
 using LibHac.Fs.Shim;
 using Ryujinx.Common;
@@ -171,15 +170,13 @@ namespace Ryujinx.HLE.HOS.Services.Account.Acc
             SaveDataFilter saveDataFilter = new SaveDataFilter();
             saveDataFilter.SetUserId(new LibHac.Fs.UserId((ulong)userId.High, (ulong)userId.Low));
 
-            using var saveDataIterator = new UniqueRef<SaveDataIterator>();
-
-            _horizonClient.Fs.OpenSaveDataIterator(ref saveDataIterator.Ref(), SaveDataSpaceId.User, in saveDataFilter).ThrowIfFailure();
+            _horizonClient.Fs.OpenSaveDataIterator(out SaveDataIterator saveDataIterator, SaveDataSpaceId.User, in saveDataFilter).ThrowIfFailure();
 
             Span<SaveDataInfo> saveDataInfo = stackalloc SaveDataInfo[10];
 
             while (true)
             {
-                saveDataIterator.Get.ReadSaveDataInfo(out long readCount, saveDataInfo).ThrowIfFailure();
+                saveDataIterator.ReadSaveDataInfo(out long readCount, saveDataInfo).ThrowIfFailure();
 
                 if (readCount == 0)
                 {

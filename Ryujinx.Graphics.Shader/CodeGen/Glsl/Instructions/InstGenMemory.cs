@@ -18,16 +18,12 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
             // TODO: Bindless texture support. For now we just return 0/do nothing.
             if (isBindless)
             {
-                switch (texOp.Inst)
+                return texOp.Inst switch
                 {
-                    case Instruction.ImageStore:
-                        return "// imageStore(bindless)";
-                    case Instruction.ImageLoad:
-                        NumberFormatter.TryFormat(0, texOp.Format.GetComponentType(), out string imageConst);
-                        return imageConst;
-                    default:
-                        return NumberFormatter.FormatInt(0);
-                }
+                    Instruction.ImageStore => "// imageStore(bindless)",
+                    Instruction.ImageLoad => NumberFormatter.FormatFloat(0),
+                    _ => NumberFormatter.FormatInt(0)
+                };
             }
 
             bool isArray   = (texOp.Type & SamplerType.Array)   != 0;
@@ -85,7 +81,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
 
             string ApplyScaling(string vector)
             {
-                if ((context.Config.Stage.SupportsRenderScale()) &&
+                if ((context.Config.Stage == ShaderStage.Fragment || context.Config.Stage == ShaderStage.Compute) &&
                     texOp.Inst == Instruction.ImageLoad &&
                     !isBindless &&
                     !isIndexed)
@@ -204,8 +200,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
 
             if (src2 is AstOperand operand && operand.Type == OperandType.Constant)
             {
-                int attrOffset = baseAttr.Value + (operand.Value << 2);
-                return OperandManager.GetAttributeName(attrOffset, context.Config, perPatch: false, isOutAttr: false, indexExpr);
+                return OperandManager.GetAttributeName(baseAttr.Value + (operand.Value << 2), context.Config, isOutAttr: false, indexExpr);
             }
             else
             {
@@ -331,8 +326,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
 
             if (src2 is AstOperand operand && operand.Type == OperandType.Constant)
             {
-                int attrOffset = baseAttr.Value + (operand.Value << 2);
-                attrName = OperandManager.GetAttributeName(attrOffset, context.Config, perPatch: false, isOutAttr: true);
+                attrName = OperandManager.GetAttributeName(baseAttr.Value + (operand.Value << 2), context.Config, isOutAttr: true);
             }
             else
             {
@@ -369,34 +363,6 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
             return $"{arrayName}[{offsetExpr}] = {src}";
         }
 
-        public static string StoreShared16(CodeGenContext context, AstOperation operation)
-        {
-            IAstNode src1 = operation.GetSource(0);
-            IAstNode src2 = operation.GetSource(1);
-
-            string offsetExpr = GetSoureExpr(context, src1, GetSrcVarType(operation.Inst, 0));
-
-            VariableType srcType = OperandManager.GetNodeDestType(context, src2);
-
-            string src = TypeConversion.ReinterpretCast(context, src2, srcType, VariableType.U32);
-
-            return $"{HelperFunctionNames.StoreShared16}({offsetExpr}, {src})";
-        }
-
-        public static string StoreShared8(CodeGenContext context, AstOperation operation)
-        {
-            IAstNode src1 = operation.GetSource(0);
-            IAstNode src2 = operation.GetSource(1);
-
-            string offsetExpr = GetSoureExpr(context, src1, GetSrcVarType(operation.Inst, 0));
-
-            VariableType srcType = OperandManager.GetNodeDestType(context, src2);
-
-            string src = TypeConversion.ReinterpretCast(context, src2, srcType, VariableType.U32);
-
-            return $"{HelperFunctionNames.StoreShared8}({offsetExpr}, {src})";
-        }
-
         public static string StoreStorage(CodeGenContext context, AstOperation operation)
         {
             IAstNode src1 = operation.GetSource(0);
@@ -413,42 +379,6 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
             string sb = GetStorageBufferAccessor(indexExpr, offsetExpr, context.Config.Stage);
 
             return $"{sb} = {src}";
-        }
-
-        public static string StoreStorage16(CodeGenContext context, AstOperation operation)
-        {
-            IAstNode src1 = operation.GetSource(0);
-            IAstNode src2 = operation.GetSource(1);
-            IAstNode src3 = operation.GetSource(2);
-
-            string indexExpr  = GetSoureExpr(context, src1, GetSrcVarType(operation.Inst, 0));
-            string offsetExpr = GetSoureExpr(context, src2, GetSrcVarType(operation.Inst, 1));
-
-            VariableType srcType = OperandManager.GetNodeDestType(context, src3);
-
-            string src = TypeConversion.ReinterpretCast(context, src3, srcType, VariableType.U32);
-
-            string sb = GetStorageBufferAccessor(indexExpr, offsetExpr, context.Config.Stage);
-
-            return $"{HelperFunctionNames.StoreStorage16}({indexExpr}, {offsetExpr}, {src})";
-        }
-
-        public static string StoreStorage8(CodeGenContext context, AstOperation operation)
-        {
-            IAstNode src1 = operation.GetSource(0);
-            IAstNode src2 = operation.GetSource(1);
-            IAstNode src3 = operation.GetSource(2);
-
-            string indexExpr  = GetSoureExpr(context, src1, GetSrcVarType(operation.Inst, 0));
-            string offsetExpr = GetSoureExpr(context, src2, GetSrcVarType(operation.Inst, 1));
-
-            VariableType srcType = OperandManager.GetNodeDestType(context, src3);
-
-            string src = TypeConversion.ReinterpretCast(context, src3, srcType, VariableType.U32);
-
-            string sb = GetStorageBufferAccessor(indexExpr, offsetExpr, context.Config.Stage);
-
-            return $"{HelperFunctionNames.StoreStorage8}({indexExpr}, {offsetExpr}, {src})";
         }
 
         public static string TextureSample(CodeGenContext context, AstOperation operation)
@@ -621,7 +551,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
             {
                 if (intCoords)
                 {
-                    if ((context.Config.Stage.SupportsRenderScale()) &&
+                    if ((context.Config.Stage == ShaderStage.Fragment || context.Config.Stage == ShaderStage.Compute) &&
                         !isBindless &&
                         !isIndexed)
                     {
@@ -770,7 +700,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
             {
                 string texCall = $"textureSize({samplerName}, {lodExpr}){GetMask(texOp.Index)}";
 
-                if (context.Config.Stage.SupportsRenderScale() &&
+                if ((context.Config.Stage == ShaderStage.Fragment || context.Config.Stage == ShaderStage.Compute) &&
                     !isBindless &&
                     !isIndexed)
                 {

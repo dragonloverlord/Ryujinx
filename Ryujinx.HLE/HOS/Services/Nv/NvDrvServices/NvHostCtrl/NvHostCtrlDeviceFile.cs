@@ -20,7 +20,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
         private Switch        _device;
         private NvHostEvent[] _events;
 
-        public NvHostCtrlDeviceFile(ServiceCtx context, IVirtualMemoryManager memory, ulong owner) : base(context, owner)
+        public NvHostCtrlDeviceFile(ServiceCtx context, IVirtualMemoryManager memory, long owner) : base(context, owner)
         {
             if (NxSettings.Settings.TryGetValue("nv!rmos_set_production_mode", out object productionModeSetting))
             {
@@ -93,7 +93,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
             return result;
         }
 
-        private int QueryEvent(uint eventId)
+        private KEvent QueryEvent(uint eventId)
         {
             lock (_events)
             {
@@ -113,18 +113,32 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
 
                 if (eventSlot >= EventsCount || _events[eventSlot] == null || _events[eventSlot].Fence.Id != syncpointId)
                 {
-                    return 0;
+                    return null;
                 }
 
-                return _events[eventSlot].EventHandle;
+                return _events[eventSlot].Event;
             }
         }
 
         public override NvInternalResult QueryEvent(out int eventHandle, uint eventId)
         {
-            eventHandle = QueryEvent(eventId);
+            KEvent targetEvent = QueryEvent(eventId);
 
-            return eventHandle != 0 ? NvInternalResult.Success : NvInternalResult.InvalidInput;
+            if (targetEvent != null)
+            {
+                if (Context.Process.HandleTable.GenerateHandle(targetEvent.ReadableEvent, out eventHandle) != KernelResult.Success)
+                {
+                    throw new InvalidOperationException("Out of handles!");
+                }
+            }
+            else
+            {
+                eventHandle = 0;
+
+                return NvInternalResult.InvalidInput;
+            }
+
+            return NvInternalResult.Success;
         }
 
         private NvInternalResult SyncptRead(ref NvFence arguments)
@@ -249,7 +263,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     hostEvent.State == NvHostEventState.Cancelled ||
                     hostEvent.State == NvHostEventState.Signaled)
                 {
-                    _events[userEventId].CloseEvent(Context);
+                    _events[userEventId].Dispose();
                     _events[userEventId] = null;
 
                     return NvInternalResult.Success;
@@ -300,11 +314,24 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                     return NvInternalResult.InvalidInput;
                 }
 
-                hostEvent.Cancel(_device.Gpu);
+                lock (hostEvent.Lock)
+                {
 
-                _device.System.HostSyncpoint.UpdateMin(hostEvent.Fence.Id);
+                    NvHostEventState oldState = hostEvent.State;
 
-                return NvInternalResult.Success;
+                    if (oldState == NvHostEventState.Waiting)
+                    {
+                        hostEvent.State = NvHostEventState.Cancelling;
+
+                        hostEvent.Cancel(_device.Gpu);
+                    }
+
+                    hostEvent.State = NvHostEventState.Cancelled;
+
+                    _device.System.HostSyncpoint.UpdateMin(hostEvent.Fence.Id);
+
+                    return NvInternalResult.Success;
+                }
             }
         }
 
@@ -459,7 +486,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                 if (Event != null)
                 {
                     if (Event.State == NvHostEventState.Available ||
-                        Event.State == NvHostEventState.Signaled ||
+                        Event.State == NvHostEventState.Signaled   ||
                         Event.State == NvHostEventState.Cancelled)
                     {
                         eventIndex = index;
@@ -530,7 +557,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostCtrl
                                 } while (evnt.State != NvHostEventState.Signaled);
                             }
 
-                            evnt.CloseEvent(Context);
+                            evnt.Dispose();
 
                             _events[i] = null;
                         }

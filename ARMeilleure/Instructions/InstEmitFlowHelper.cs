@@ -163,11 +163,6 @@ namespace ARMeilleure.Instructions
         {
             if (isReturn)
             {
-                if (target.Type == OperandType.I32)
-                {
-                    target = context.ZeroExtend32(OperandType.I64, target);
-                }
-
                 context.Return(target);
             }
             else

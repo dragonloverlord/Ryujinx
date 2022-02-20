@@ -109,28 +109,28 @@ namespace Ryujinx.Graphics.Shader.Instructions
         {
             InstSuldDB op = context.GetOp<InstSuldDB>();
 
-            EmitSuld(context, op.CacheOp, op.Dim, op.Size, 0, 0, op.SrcA, op.Dest, op.SrcC, useComponents: false, op.Ba, isBindless: true);
+            EmitSuld(context, op.Dim, op.Size, 0, 0, op.SrcA, op.Dest, op.SrcC, useComponents: false, op.Ba, isBindless: true);
         }
 
         public static void SuldD(EmitterContext context)
         {
             InstSuldD op = context.GetOp<InstSuldD>();
 
-            EmitSuld(context, op.CacheOp, op.Dim, op.Size, op.TidB, 0, op.SrcA, op.Dest, 0, useComponents: false, op.Ba, isBindless: false);
+            EmitSuld(context, op.Dim, op.Size, op.TidB, 0, op.SrcA, op.Dest, 0, useComponents: false, op.Ba, isBindless: false);
         }
 
         public static void SuldB(EmitterContext context)
         {
             InstSuldB op = context.GetOp<InstSuldB>();
 
-            EmitSuld(context, op.CacheOp, op.Dim, 0, 0, op.Rgba, op.SrcA, op.Dest, 0, useComponents: true, false, isBindless: true);
+            EmitSuld(context, op.Dim, 0, 0, op.Rgba, op.SrcA, op.Dest, 0, useComponents: true, false, isBindless: true);
         }
 
         public static void Suld(EmitterContext context)
         {
             InstSuld op = context.GetOp<InstSuld>();
 
-            EmitSuld(context, op.CacheOp, op.Dim, 0, op.TidB, op.Rgba, op.SrcA, op.Dest, 0, useComponents: true, false, isBindless: false);
+            EmitSuld(context, op.Dim, 0, op.TidB, op.Rgba, op.SrcA, op.Dest, 0, useComponents: true, false, isBindless: false);
         }
 
         public static void SuredB(EmitterContext context)
@@ -151,28 +151,28 @@ namespace Ryujinx.Graphics.Shader.Instructions
         {
             InstSustDB op = context.GetOp<InstSustDB>();
 
-            EmitSust(context, op.CacheOp, op.Dim, op.Size, 0, 0, op.SrcA, op.Dest, op.SrcC, useComponents: false, op.Ba, isBindless: true);
+            EmitSust(context, op.Dim, op.Size, 0, 0, op.SrcA, op.Dest, op.SrcC, useComponents: false, op.Ba, isBindless: true);
         }
 
         public static void SustD(EmitterContext context)
         {
             InstSustD op = context.GetOp<InstSustD>();
 
-            EmitSust(context, op.CacheOp, op.Dim, op.Size, op.TidB, 0, op.SrcA, op.Dest, 0, useComponents: false, op.Ba, isBindless: false);
+            EmitSust(context, op.Dim, op.Size, op.TidB, 0, op.SrcA, op.Dest, 0, useComponents: false, op.Ba, isBindless: false);
         }
 
         public static void SustB(EmitterContext context)
         {
             InstSustB op = context.GetOp<InstSustB>();
 
-            EmitSust(context, op.CacheOp, op.Dim, 0, 0, op.Rgba, op.SrcA, op.Dest, op.SrcC, useComponents: true, false, isBindless: true);
+            EmitSust(context, op.Dim, 0, 0, op.Rgba, op.SrcA, op.Dest, op.SrcC, useComponents: true, false, isBindless: true);
         }
 
         public static void Sust(EmitterContext context)
         {
             InstSust op = context.GetOp<InstSust>();
 
-            EmitSust(context, op.CacheOp, op.Dim, 0, op.TidB, op.Rgba, op.SrcA, op.Dest, 0, useComponents: true, false, isBindless: false);
+            EmitSust(context, op.Dim, 0, op.TidB, op.Rgba, op.SrcA, op.Dest, 0, useComponents: true, false, isBindless: false);
         }
 
         private static void EmitSuatom(
@@ -219,9 +219,9 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             Operand GetDest()
             {
-                if (dest >= RegisterConsts.RegisterZeroIndex)
+                if (dest > RegisterConsts.RegisterZeroIndex)
                 {
-                    return null;
+                    return Const(0);
                 }
 
                 return Register(dest++, RegisterType.Gpr);
@@ -264,8 +264,8 @@ namespace Ryujinx.Graphics.Shader.Instructions
             }
 
             // TODO: FP and 64-bit formats.
-            TextureFormat format = size == SuatomSize.Sd32 || size == SuatomSize.Sd64
-                ? (isBindless ? TextureFormat.Unknown : context.Config.GetTextureFormatAtomic(imm))
+            TextureFormat format = !isBindless && (size == SuatomSize.Sd32 || size == SuatomSize.Sd64)
+                ? context.Config.GetTextureFormatAtomic(imm)
                 : GetTextureFormat(size);
 
             if (compareAndSwap)
@@ -299,7 +299,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
         private static void EmitSuld(
             EmitterContext context,
-            CacheOpLd cacheOp,
             SuDim dimensions,
             SuSize size,
             int imm,
@@ -363,11 +362,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
             int handle = imm;
 
             TextureFlags flags = isBindless ? TextureFlags.Bindless : TextureFlags.None;
-
-            if (cacheOp == CacheOpLd.Cg)
-            {
-                flags |= TextureFlags.Coherent;
-            }
 
             if (useComponents)
             {
@@ -522,8 +516,8 @@ namespace Ryujinx.Graphics.Shader.Instructions
             }
 
             // TODO: FP and 64-bit formats.
-            TextureFormat format = size == SuatomSize.Sd32 || size == SuatomSize.Sd64
-                ? (isBindless ? TextureFormat.Unknown : context.Config.GetTextureFormatAtomic(imm))
+            TextureFormat format = !isBindless && (size == SuatomSize.Sd32 || size == SuatomSize.Sd64)
+                ? context.Config.GetTextureFormatAtomic(imm)
                 : GetTextureFormat(size);
 
             sourcesList.Add(Rb());
@@ -552,7 +546,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
         private static void EmitSust(
             EmitterContext context,
-            CacheOpSt cacheOp,
             SuDim dimensions,
             SuSize size,
             int imm,
@@ -660,11 +653,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
             int handle = imm;
 
             TextureFlags flags = isBindless ? TextureFlags.Bindless : TextureFlags.None;
-
-            if (cacheOp == CacheOpSt.Cg)
-            {
-                flags |= TextureFlags.Coherent;
-            }
 
             TextureOperation operation = context.CreateTextureOperation(
                 Instruction.ImageStore,

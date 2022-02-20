@@ -25,16 +25,6 @@ namespace Ryujinx.Common.Configuration.Hid.Controller
         public float DeadzoneRight { get; set; }
 
         /// <summary>
-        /// Controller Left Analog Stick Range
-        /// </summary>
-        public float RangeLeft { get; set; }
-
-        /// <summary>
-        /// Controller Right Analog Stick Range
-        /// </summary>
-        public float RangeRight { get; set; }
-
-        /// <summary>
         /// Controller Trigger Threshold
         /// </summary>
         public float TriggerThreshold { get; set; }

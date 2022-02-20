@@ -306,9 +306,9 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             Operand GetDest()
             {
-                if (rdIndex >= RegisterConsts.RegisterZeroIndex)
+                if (rdIndex > RegisterConsts.RegisterZeroIndex)
                 {
-                    return null;
+                    return Const(0);
                 }
 
                 return Register(rdIndex++, RegisterType.Gpr);
@@ -321,11 +321,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
                 if ((compMask & 1) != 0)
                 {
                     Operand dest = GetDest();
-
-                    if (dest == null)
-                    {
-                        break;
-                    }
 
                     TextureOperation operation = context.CreateTextureOperation(
                         Instruction.TextureSample,
@@ -800,9 +795,9 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             Operand GetDest()
             {
-                if (dest >= RegisterConsts.RegisterZeroIndex)
+                if (dest > RegisterConsts.RegisterZeroIndex)
                 {
-                    return null;
+                    return Const(0);
                 }
 
                 return Register(dest++, RegisterType.Gpr);
@@ -814,20 +809,13 @@ namespace Ryujinx.Graphics.Shader.Instructions
             {
                 if ((compMask & 1) != 0)
                 {
-                    Operand destOperand = GetDest();
-
-                    if (destOperand == null)
-                    {
-                        break;
-                    }
-
                     TextureOperation operation = context.CreateTextureOperation(
                         Instruction.TextureSample,
                         type,
                         flags,
                         handle,
                         compIndex,
-                        destOperand,
+                        GetDest(),
                         sources);
 
                     context.Add(operation);
@@ -914,9 +902,9 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             Operand GetDest()
             {
-                if (dest >= RegisterConsts.RegisterZeroIndex)
+                if (dest > RegisterConsts.RegisterZeroIndex)
                 {
-                    return null;
+                    return Const(0);
                 }
 
                 return Register(dest++, RegisterType.Gpr);
@@ -928,18 +916,11 @@ namespace Ryujinx.Graphics.Shader.Instructions
             {
                 if ((compMask & 1) != 0)
                 {
-                    Operand destOperand = GetDest();
-
-                    if (destOperand == null)
-                    {
-                        break;
-                    }
-
                     // Components z and w aren't standard, we return 0 in this case and add a comment.
                     if (compIndex >= 2)
                     {
                         context.Add(new CommentNode("Unsupported component z or w found"));
-                        context.Copy(destOperand, Const(0));
+                        context.Copy(GetDest(), Const(0));
                     }
                     else
                     {
@@ -958,9 +939,9 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
                         tempDest = context.FPMultiply(tempDest, ConstF(256.0f));
 
-                        Operand fixedPointValue = context.FP32ConvertToS32(tempDest);
+                        Operand fixedPointValue = context.FPConvertToS32(tempDest);
 
-                        context.Copy(destOperand, fixedPointValue);
+                        context.Copy(GetDest(), fixedPointValue);
                     }
                 }
             }
@@ -1074,9 +1055,9 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             Operand GetDest()
             {
-                if (dest >= RegisterConsts.RegisterZeroIndex)
+                if (dest > RegisterConsts.RegisterZeroIndex)
                 {
-                    return null;
+                    return Const(0);
                 }
 
                 return Register(dest++, RegisterType.Gpr);
@@ -1088,20 +1069,13 @@ namespace Ryujinx.Graphics.Shader.Instructions
             {
                 if ((compMask & 1) != 0)
                 {
-                    Operand destOperand = GetDest();
-
-                    if (destOperand == null)
-                    {
-                        break;
-                    }
-
                     TextureOperation operation = context.CreateTextureOperation(
                         Instruction.TextureSample,
                         type,
                         flags,
                         handle,
                         compIndex,
-                        destOperand,
+                        GetDest(),
                         sources);
 
                     context.Add(operation);
@@ -1152,9 +1126,9 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             Operand GetDest()
             {
-                if (dest >= RegisterConsts.RegisterZeroIndex)
+                if (dest > RegisterConsts.RegisterZeroIndex)
                 {
-                    return null;
+                    return Const(0);
                 }
 
                 return Register(dest++, RegisterType.Gpr);
@@ -1175,20 +1149,13 @@ namespace Ryujinx.Graphics.Shader.Instructions
             {
                 if ((compMask & 1) != 0)
                 {
-                    Operand destOperand = GetDest();
-
-                    if (destOperand == null)
-                    {
-                        break;
-                    }
-
                     TextureOperation operation = context.CreateTextureOperation(
                         inst,
                         type,
                         flags,
                         imm,
                         compIndex,
-                        destOperand,
+                        GetDest(),
                         sources);
 
                     context.Add(operation);

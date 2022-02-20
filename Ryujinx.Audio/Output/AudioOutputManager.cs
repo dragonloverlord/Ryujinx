@@ -208,14 +208,13 @@ namespace Ryujinx.Audio.Output
                                        SampleFormat sampleFormat,
                                        ref AudioInputConfiguration parameter,
                                        ulong appletResourceUserId,
-                                       uint processHandle,
-                                       float volume)
+                                       uint processHandle)
         {
             int sessionId = AcquireSessionId();
 
             _sessionsBufferEvents[sessionId].Clear();
 
-            IHardwareDeviceSession deviceSession = _deviceDriver.OpenDeviceSession(IHardwareDeviceDriver.Direction.Output, memoryManager, sampleFormat, parameter.SampleRate, parameter.ChannelCount, volume);
+            IHardwareDeviceSession deviceSession = _deviceDriver.OpenDeviceSession(IHardwareDeviceDriver.Direction.Output, memoryManager, sampleFormat, parameter.SampleRate, parameter.ChannelCount);
 
             AudioOutputSystem audioOut = new AudioOutputSystem(this, _lock, deviceSession, _sessionsBufferEvents[sessionId]);
 
@@ -246,41 +245,6 @@ namespace Ryujinx.Audio.Output
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// Sets the volume for all output devices.
-        /// </summary>
-        /// <param name="volume">The volume to set.</param>
-        public void SetVolume(float volume)
-        {
-            if (_sessions != null)
-            {
-                foreach (AudioOutputSystem session in _sessions)
-                {
-                    session?.SetVolume(volume);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the volume for all output devices.
-        /// </summary>
-        /// <returns>A float indicating the volume level.</returns>
-        public float GetVolume()
-        {
-            if (_sessions != null)
-            {
-                foreach (AudioOutputSystem session in _sessions)
-                {
-                    if (session != null)
-                    {
-                        return session.GetVolume();
-                    }
-                }
-            }
-
-            return 0.0f;
         }
 
         public void Dispose()

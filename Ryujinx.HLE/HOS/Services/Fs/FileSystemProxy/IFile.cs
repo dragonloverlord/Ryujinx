@@ -1,5 +1,4 @@
 using LibHac;
-using LibHac.Common;
 using LibHac.Fs;
 using LibHac.Sf;
 using Ryujinx.Common;
@@ -8,11 +7,11 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
 {
     class IFile : DisposableIpcService
     {
-        private SharedRef<LibHac.FsSrv.Sf.IFile> _baseFile;
+        private ReferenceCountedDisposable<LibHac.FsSrv.Sf.IFile> _baseFile;
 
-        public IFile(ref SharedRef<LibHac.FsSrv.Sf.IFile> baseFile)
+        public IFile(ReferenceCountedDisposable<LibHac.FsSrv.Sf.IFile> baseFile)
         {
-            _baseFile = SharedRef<LibHac.FsSrv.Sf.IFile>.CreateMove(ref baseFile);
+            _baseFile = baseFile;
         }
 
         [CommandHipc(0)]
@@ -29,7 +28,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
 
             byte[] data = new byte[context.Request.ReceiveBuff[0].Size];
 
-            Result result = _baseFile.Get.Read(out long bytesRead, offset, new OutBuffer(data), size, readOption);
+            Result result = _baseFile.Target.Read(out long bytesRead, offset, new OutBuffer(data), size, readOption);
 
             context.Memory.Write(position, data);
 
@@ -54,14 +53,14 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
 
             context.Memory.Read(position, data);
 
-            return (ResultCode)_baseFile.Get.Write(offset, new InBuffer(data), size, writeOption).Value;
+            return (ResultCode)_baseFile.Target.Write(offset, new InBuffer(data), size, writeOption).Value;
         }
 
         [CommandHipc(2)]
         // Flush()
         public ResultCode Flush(ServiceCtx context)
         {
-            return (ResultCode)_baseFile.Get.Flush().Value;
+            return (ResultCode)_baseFile.Target.Flush().Value;
         }
 
         [CommandHipc(3)]
@@ -70,14 +69,14 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             long size = context.RequestData.ReadInt64();
 
-            return (ResultCode)_baseFile.Get.SetSize(size).Value;
+            return (ResultCode)_baseFile.Target.SetSize(size).Value;
         }
 
         [CommandHipc(4)]
         // GetSize() -> u64 fileSize
         public ResultCode GetSize(ServiceCtx context)
         {
-            Result result = _baseFile.Get.GetSize(out long size);
+            Result result = _baseFile.Target.GetSize(out long size);
 
             context.ResponseData.Write(size);
 
@@ -88,7 +87,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             if (isDisposing)
             {
-                _baseFile.Destroy();
+                _baseFile?.Dispose();
             }
         }
     }

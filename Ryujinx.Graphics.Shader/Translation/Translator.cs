@@ -4,7 +4,7 @@ using Ryujinx.Graphics.Shader.IntermediateRepresentation;
 using Ryujinx.Graphics.Shader.StructuredIr;
 using Ryujinx.Graphics.Shader.Translation.Optimizations;
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Numerics;
 
 using static Ryujinx.Graphics.Shader.IntermediateRepresentation.OperandHelper;
@@ -33,7 +33,9 @@ namespace Ryujinx.Graphics.Shader.Translation
         {
             counts ??= new TranslationCounts();
 
-            return DecodeShader(address, gpuAccessor, options, counts);
+            Block[][] cfg = DecodeShader(address, gpuAccessor, options, counts, out ShaderConfig config);
+
+            return new TranslatorContext(address, cfg, config);
         }
 
         internal static ShaderProgram Translate(FunctionCode[] functions, ShaderConfig config, out ShaderProgramInfo shaderProgramInfo)
@@ -105,35 +107,40 @@ namespace Ryujinx.Graphics.Shader.Translation
                 config.GetImageDescriptors(),
                 config.UsedFeatures.HasFlag(FeatureFlags.InstanceId),
                 config.UsedFeatures.HasFlag(FeatureFlags.RtLayer),
-                config.ClipDistancesWritten,
-                config.OmapTargets);
+                config.ClipDistancesWritten);
 
             return program;
         }
 
-        private static TranslatorContext DecodeShader(ulong address, IGpuAccessor gpuAccessor, TranslationOptions options, TranslationCounts counts)
+        private static Block[][] DecodeShader(
+            ulong address,
+            IGpuAccessor gpuAccessor,
+            TranslationOptions options,
+            TranslationCounts counts,
+            out ShaderConfig config)
         {
-            ShaderConfig config;
-            DecodedProgram program;
+            Block[][] cfg;
             ulong maxEndAddress = 0;
 
             if ((options.Flags & TranslationFlags.Compute) != 0)
             {
                 config = new ShaderConfig(gpuAccessor, options, counts);
 
-                program = Decoder.Decode(config, address);
+                cfg = Decoder.Decode(config, address);
             }
             else
             {
                 config = new ShaderConfig(new ShaderHeader(gpuAccessor, address), gpuAccessor, options, counts);
 
-                program = Decoder.Decode(config, address + HeaderSize);
+                cfg = Decoder.Decode(config, address + HeaderSize);
             }
 
-            foreach (DecodedFunction function in program)
+            for (int funcIndex = 0; funcIndex < cfg.Length; funcIndex++)
             {
-                foreach (Block block in function.Blocks)
+                for (int blkIndex = 0; blkIndex < cfg[funcIndex].Length; blkIndex++)
                 {
+                    Block block = cfg[funcIndex][blkIndex];
+
                     if (maxEndAddress < block.EndAddress)
                     {
                         maxEndAddress = block.EndAddress;
@@ -157,36 +164,36 @@ namespace Ryujinx.Graphics.Shader.Translation
 
             config.SizeAdd((int)maxEndAddress + (options.Flags.HasFlag(TranslationFlags.Compute) ? 0 : HeaderSize));
 
-            return new TranslatorContext(address, program, config);
+            return cfg;
         }
 
-        internal static FunctionCode[] EmitShader(DecodedProgram program, ShaderConfig config, bool initializeOutputs, out int initializationOperations)
+        internal static FunctionCode[] EmitShader(Block[][] cfg, ShaderConfig config, bool initializeOutputs, out int initializationOperations)
         {
             initializationOperations = 0;
 
-            FunctionMatch.RunPass(program);
+            Dictionary<ulong, int> funcIds = new Dictionary<ulong, int>();
 
-            foreach (DecodedFunction function in program.OrderBy(x => x.Address).Where(x => !x.IsCompilerGenerated))
+            for (int funcIndex = 0; funcIndex < cfg.Length; funcIndex++)
             {
-                program.AddFunctionAndSetId(function);
+                funcIds.Add(cfg[funcIndex][0].Address, funcIndex);
             }
 
-            FunctionCode[] functions = new FunctionCode[program.FunctionsWithIdCount];
+            List<FunctionCode> funcs = new List<FunctionCode>();
 
-            for (int index = 0; index < functions.Length; index++)
+            for (int funcIndex = 0; funcIndex < cfg.Length; funcIndex++)
             {
-                EmitterContext context = new EmitterContext(program, config, index != 0);
+                EmitterContext context = new EmitterContext(config, funcIndex != 0, funcIds);
 
-                if (initializeOutputs && index == 0)
+                if (initializeOutputs && funcIndex == 0)
                 {
                     EmitOutputsInitialization(context, config);
                     initializationOperations = context.OperationsCount;
                 }
 
-                DecodedFunction function = program.GetFunctionById(index);
-
-                foreach (Block block in function.Blocks)
+                for (int blkIndex = 0; blkIndex < cfg[funcIndex].Length; blkIndex++)
                 {
+                    Block block = cfg[funcIndex][blkIndex];
+
                     context.CurrBlock = block;
 
                     context.MarkLabel(context.GetLabel(block.Address));
@@ -194,10 +201,10 @@ namespace Ryujinx.Graphics.Shader.Translation
                     EmitOps(context, block);
                 }
 
-                functions[index] = new FunctionCode(context.GetOperations());
+                funcs.Add(new FunctionCode(context.GetOperations()));
             }
 
-            return functions;
+            return funcs.ToArray();
         }
 
         private static void EmitOutputsInitialization(EmitterContext context, ShaderConfig config)
@@ -209,54 +216,27 @@ namespace Ryujinx.Graphics.Shader.Translation
                 return;
             }
 
-            if (config.Stage == ShaderStage.Vertex)
+            void InitializeOutput(int baseAttr)
             {
-                InitializeOutput(context, AttributeConsts.PositionX, perPatch: false);
-            }
-
-            int usedAttributes = context.Config.UsedOutputAttributes;
-            while (usedAttributes != 0)
-            {
-                int index = BitOperations.TrailingZeroCount(usedAttributes);
-
-                InitializeOutput(context, AttributeConsts.UserAttributeBase + index * 16, perPatch: false);
-
-                usedAttributes &= ~(1 << index);
-            }
-
-            int usedAttributesPerPatch = context.Config.UsedOutputAttributesPerPatch;
-            while (usedAttributesPerPatch != 0)
-            {
-                int index = BitOperations.TrailingZeroCount(usedAttributesPerPatch);
-
-                InitializeOutput(context, AttributeConsts.UserAttributeBase + index * 16, perPatch: true);
-
-                usedAttributesPerPatch &= ~(1 << index);
-            }
-
-            if (config.NextUsesFixedFuncAttributes)
-            {
-                for (int i = 0; i < 4 + AttributeConsts.TexCoordCount; i++)
+                for (int c = 0; c < 4; c++)
                 {
-                    int index = config.GetFreeUserAttribute(isOutput: true, i);
-                    if (index < 0)
-                    {
-                        break;
-                    }
-
-                    InitializeOutput(context, AttributeConsts.UserAttributeBase + index * 16, perPatch: false);
-
-                    config.SetOutputUserAttributeFixedFunc(index);
+                    context.Copy(Attribute(baseAttr + c * 4), ConstF(c == 3 ? 1f : 0f));
                 }
             }
-        }
 
-        private static void InitializeOutput(EmitterContext context, int baseAttr, bool perPatch)
-        {
-            for (int c = 0; c < 4; c++)
+            if (config.Stage == ShaderStage.Vertex)
             {
-                int attrOffset = baseAttr + c * 4;
-                context.Copy(perPatch ? AttributePerPatch(attrOffset) : Attribute(attrOffset), ConstF(c == 3 ? 1f : 0f));
+                InitializeOutput(AttributeConsts.PositionX);
+            }
+
+            int usedAttribtes = context.Config.UsedOutputAttributes;
+            while (usedAttribtes != 0)
+            {
+                int index = BitOperations.TrailingZeroCount(usedAttribtes);
+
+                InitializeOutput(AttributeConsts.UserAttributeBase + index * 16);
+
+                usedAttribtes &= ~(1 << index);
             }
         }
 
@@ -296,7 +276,7 @@ namespace Ryujinx.Graphics.Shader.Translation
 
                 Operand predSkipLbl = null;
 
-                if (Decoder.IsPopBranch(op.Name))
+                if (op.Name == InstName.Sync || op.Name == InstName.Brk)
                 {
                     // If the instruction is a SYNC or BRK instruction with only one
                     // possible target address, then the instruction is basically

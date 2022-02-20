@@ -4,7 +4,6 @@ using System;
 
 using static Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions.InstGenBallot;
 using static Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions.InstGenCall;
-using static Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions.InstGenFSI;
 using static Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions.InstGenHelper;
 using static Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions.InstGenMemory;
 using static Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions.InstGenPacking;
@@ -26,30 +25,6 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
             }
 
             throw new ArgumentException($"Invalid node type \"{node?.GetType().Name ?? "null"}\".");
-        }
-
-        public static string Negate(CodeGenContext context, AstOperation operation, InstInfo info)
-        {
-            IAstNode src = operation.GetSource(0);
-
-            VariableType type = GetSrcVarType(operation.Inst, 0);
-
-            string srcExpr = GetSoureExpr(context, src, type);
-            string zero;
-
-            if (type == VariableType.F64)
-            {
-                zero = "0.0";
-            }
-            else
-            {
-                NumberFormatter.TryFormat(0, type, out zero);
-            }
-
-            // Starting in the 496.13 NVIDIA driver, there's an issue with assigning variables to negated expressions.
-            // (-expr) does not work, but (0.0 - expr) does. This should be removed once the issue is resolved.
-
-            return $"{zero} - {Enclose(srcExpr, src, operation.Inst, info, false)}";
         }
 
         private static string GetExpression(CodeGenContext context, AstOperation operation)
@@ -145,19 +120,13 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
             }
             else if ((info.Type & InstType.Special) != 0)
             {
-                switch (inst & Instruction.Mask)
+                switch (inst)
                 {
                     case Instruction.Ballot:
                         return Ballot(context, operation);
 
                     case Instruction.Call:
                         return Call(context, operation);
-
-                    case Instruction.FSIBegin:
-                        return FSIBegin(context);
-
-                    case Instruction.FSIEnd:
-                        return FSIEnd(context);
 
                     case Instruction.ImageLoad:
                     case Instruction.ImageStore:
@@ -182,9 +151,6 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
                     case Instruction.Lod:
                         return Lod(context, operation);
 
-                    case Instruction.Negate:
-                        return Negate(context, operation, info);
-
                     case Instruction.PackDouble2x32:
                         return PackDouble2x32(context, operation);
 
@@ -200,20 +166,8 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl.Instructions
                     case Instruction.StoreShared:
                         return StoreShared(context, operation);
 
-                    case Instruction.StoreShared16:
-                        return StoreShared16(context, operation);
-
-                    case Instruction.StoreShared8:
-                        return StoreShared8(context, operation);
-
                     case Instruction.StoreStorage:
                         return StoreStorage(context, operation);
-
-                    case Instruction.StoreStorage16:
-                        return StoreStorage16(context, operation);
-
-                    case Instruction.StoreStorage8:
-                        return StoreStorage8(context, operation);
 
                     case Instruction.TextureSample:
                         return TextureSample(context, operation);

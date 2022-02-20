@@ -119,10 +119,19 @@ namespace Ryujinx.Graphics.OpenGL.Queries
                     _current.ReserveForHostAccess();
                 }
 
-                _current.Complete(draws > 0);
-                _events.Enqueue(_current);
+                if (draws > 0)
+                {
+                    _current.Complete(true);
+                    _events.Enqueue(_current);
 
-                _current.OnResult += resultHandler;
+                    _current.OnResult += resultHandler;
+                }
+                else
+                {
+                    _current.Complete(false);
+                    _current.Dispose();
+                    resultHandler(_current, 0);
+                }
 
                 result = _current;
 

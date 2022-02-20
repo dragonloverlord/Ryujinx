@@ -7,14 +7,14 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Resources.Programs
         public ThreadedProgram Threaded { get; set; }
 
         private IShader[] _shaders;
-        private ShaderInfo _info;
+        private TransformFeedbackDescriptor[] _transformFeedbackDescriptors;
 
-        public SourceProgramRequest(ThreadedProgram program, IShader[] shaders, ShaderInfo info)
+        public SourceProgramRequest(ThreadedProgram program, IShader[] shaders, TransformFeedbackDescriptor[] transformFeedbackDescriptors)
         {
             Threaded = program;
 
             _shaders = shaders;
-            _info = info;
+            _transformFeedbackDescriptors = transformFeedbackDescriptors;
         }
 
         public IProgram Create(IRenderer renderer)
@@ -26,7 +26,7 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Resources.Programs
                 return threaded?.Base;
             }).ToArray();
 
-            return renderer.CreateProgram(shaders, _info);
+            return renderer.CreateProgram(shaders, _transformFeedbackDescriptors);
         }
     }
 }

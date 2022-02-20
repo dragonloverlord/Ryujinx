@@ -8,13 +8,6 @@ namespace Ryujinx.HLE.HOS.Services.Nifm.StaticService
 {
     class IRequest : IpcService
     {
-        private enum RequestState
-        {
-            Error = 1,
-            OnHold = 2,
-            Available = 3
-        }
-
         private KEvent _event0;
         private KEvent _event1;
 
@@ -35,11 +28,7 @@ namespace Ryujinx.HLE.HOS.Services.Nifm.StaticService
         // GetRequestState() -> u32
         public ResultCode GetRequestState(ServiceCtx context)
         {
-            RequestState requestState = context.Device.Configuration.EnableInternetAccess
-                ? RequestState.Available
-                : RequestState.Error;
-
-            context.ResponseData.Write((int)requestState);
+            context.ResponseData.Write(1);
 
             Logger.Stub?.PrintStub(LogClass.ServiceNifm);
 

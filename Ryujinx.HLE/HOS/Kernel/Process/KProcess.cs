@@ -45,8 +45,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
         public KAddressArbiter AddressArbiter { get; private set; }
 
-        public ulong[] RandomEntropy { get; private set; }
-        public KThread[] PinnedThreads { get; private set; }
+        public long[] RandomEntropy { get; private set; }
 
         private bool _signaled;
 
@@ -61,8 +60,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
         public KProcessCapabilities Capabilities { get; private set; }
 
         public ulong TitleId { get; private set; }
-        public bool IsApplication { get; private set; }
-        public ulong Pid { get; private set; }
+        public long Pid { get; private set; }
 
         private long _creationTimestamp;
         private ulong _entrypoint;
@@ -102,8 +100,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
             Capabilities = new KProcessCapabilities();
 
-            RandomEntropy = new ulong[KScheduler.CpuCoresCount];
-            PinnedThreads = new KThread[KScheduler.CpuCoresCount];
+            RandomEntropy = new long[KScheduler.CpuCoresCount];
 
             // TODO: Remove once we no longer need to initialize it externally.
             HandleTable = new KHandleTable(context);
@@ -131,7 +128,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
             Pid = KernelContext.NewKipId();
 
-            if (Pid == 0 || Pid >= KernelConstants.InitialProcessId)
+            if (Pid == 0 || (ulong)Pid >= KernelConstants.InitialProcessId)
             {
                 throw new InvalidOperationException($"Invalid KIP Id {Pid}.");
             }
@@ -196,7 +193,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             _memRegion = memRegion;
             _contextFactory = contextFactory ?? new ProcessContextFactory();
             _customThreadStart = customThreadStart;
-            IsApplication = creationInfo.Flags.HasFlag(ProcessCreationFlags.IsApplication);
 
             ulong personalMmHeapSize = GetPersonalMmHeapSize((ulong)creationInfo.SystemResourcePagesCount, memRegion);
 
@@ -239,7 +235,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
             Pid = KernelContext.NewProcessId();
 
-            if (Pid == ulong.MaxValue || Pid < KernelConstants.InitialProcessId)
+            if (Pid == -1 || (ulong)Pid < KernelConstants.InitialProcessId)
             {
                 throw new InvalidOperationException($"Invalid Process Id {Pid}.");
             }
@@ -751,19 +747,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
         {
             KThread currentThread = KernelStatic.GetCurrentThread();
 
-            if (currentThread.Owner != null &&
-                currentThread.GetUserDisableCount() != 0 &&
-                currentThread.Owner.PinnedThreads[currentThread.CurrentCore] == null)
-            {
-                KernelContext.CriticalSection.Enter();
-
-                currentThread.Owner.PinThread(currentThread);
-
-                currentThread.SetUserInterruptFlag();
-
-                KernelContext.CriticalSection.Leave();
-            }
-
             if (currentThread.IsSchedulable)
             {
                 KernelContext.Schedulers[currentThread.CurrentCore].Schedule();
@@ -868,12 +851,12 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
         public bool IsCpuCoreAllowed(int core)
         {
-            return (Capabilities.AllowedCpuCoresMask & (1UL << core)) != 0;
+            return (Capabilities.AllowedCpuCoresMask & (1L << core)) != 0;
         }
 
         public bool IsPriorityAllowed(int priority)
         {
-            return (Capabilities.AllowedThreadPriosMask & (1UL << priority)) != 0;
+            return (Capabilities.AllowedThreadPriosMask & (1L << priority)) != 0;
         }
 
         public override bool IsSignaled()
@@ -966,11 +949,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             lock (_threadingLock)
             {
                 KernelContext.CriticalSection.Enter();
-
-                if (currentThread != null && PinnedThreads[currentThread.CurrentCore] == currentThread)
-                {
-                    UnpinThread(currentThread);
-                }
 
                 foreach (KThread thread in _threads)
                 {
@@ -1158,36 +1136,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             KernelContext.CriticalSection.Leave();
 
             return KernelResult.InvalidState;
-        }
-
-        public void PinThread(KThread thread)
-        {
-            if (!thread.TerminationRequested)
-            {
-                PinnedThreads[thread.CurrentCore] = thread;
-
-                thread.Pin();
-
-                KernelContext.ThreadReselectionRequested = true;
-            }
-        }
-
-        public void UnpinThread(KThread thread)
-        {
-            if (!thread.TerminationRequested)
-            {
-                thread.Unpin();
-
-                PinnedThreads[thread.CurrentCore] = null;
-
-                KernelContext.ThreadReselectionRequested = true;
-            }
-        }
-
-        public bool IsExceptionUserThread(KThread thread)
-        {
-            // TODO
-            return false;
         }
     }
 }

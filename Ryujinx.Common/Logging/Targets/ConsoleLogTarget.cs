@@ -17,7 +17,6 @@ namespace Ryujinx.Common.Logging
             LogLevel.Error   => ConsoleColor.Red,
             LogLevel.Stub    => ConsoleColor.DarkGray,
             LogLevel.Notice  => ConsoleColor.Cyan,
-            LogLevel.Trace   => ConsoleColor.DarkCyan,
             _                => ConsoleColor.Gray,
         };
 

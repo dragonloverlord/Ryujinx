@@ -34,11 +34,8 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                 { nameof(ThreedClassState.LaunchDma), new RwCallback(LaunchDma, null) },
                 { nameof(ThreedClassState.LoadInlineData), new RwCallback(LoadInlineData, null) },
                 { nameof(ThreedClassState.SyncpointAction), new RwCallback(IncrementSyncpoint, null) },
-                { nameof(ThreedClassState.InvalidateSamplerCacheNoWfi), new RwCallback(InvalidateSamplerCacheNoWfi, null) },
-                { nameof(ThreedClassState.InvalidateTextureHeaderCacheNoWfi), new RwCallback(InvalidateTextureHeaderCacheNoWfi, null) },
                 { nameof(ThreedClassState.TextureBarrier), new RwCallback(TextureBarrier, null) },
                 { nameof(ThreedClassState.TextureBarrierTiled), new RwCallback(TextureBarrierTiled, null) },
-                { nameof(ThreedClassState.DrawTextureSrcY), new RwCallback(DrawTexture, null) },
                 { nameof(ThreedClassState.VbElementU8), new RwCallback(VbElementU8, null) },
                 { nameof(ThreedClassState.VbElementU16), new RwCallback(VbElementU16, null) },
                 { nameof(ThreedClassState.VbElementU32), new RwCallback(VbElementU32, null) },
@@ -138,14 +135,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         }
 
         /// <summary>
-        /// Updates scissor based on current render target state.
-        /// </summary>
-        public void UpdateScissorState()
-        {
-            _stateUpdater.UpdateScissorState();
-        }
-
-        /// <summary>
         /// Marks the entire state as dirty, forcing a full host state update before the next draw.
         /// </summary>
         public void ForceStateDirty()
@@ -232,27 +221,9 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
             uint syncpointId = (uint)argument & 0xFFFF;
 
             _context.AdvanceSequence();
-            _context.CreateHostSyncIfNeeded(true);
+            _context.CreateHostSyncIfNeeded();
             _context.Renderer.UpdateCounters(); // Poll the query counters, the game may want an updated result.
             _context.Synchronization.IncrementSyncpoint(syncpointId);
-        }
-
-        /// <summary>
-        /// Invalidates the cache with the sampler descriptors from the sampler pool.
-        /// </summary>
-        /// <param name="argument">Method call argument (unused)</param>
-        private void InvalidateSamplerCacheNoWfi(int argument)
-        {
-            _context.AdvanceSequence();
-        }
-
-        /// <summary>
-        /// Invalidates the cache with the texture descriptors from the texture pool.
-        /// </summary>
-        /// <param name="argument">Method call argument (unused)</param>
-        private void InvalidateTextureHeaderCacheNoWfi(int argument)
-        {
-            _context.AdvanceSequence();
         }
 
         /// <summary>
@@ -278,15 +249,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         private void TextureBarrierTiled(int argument)
         {
             _context.Renderer.Pipeline.TextureBarrierTiled();
-        }
-
-        /// <summary>
-        /// Draws a texture, without needing to specify shader programs.
-        /// </summary>
-        /// <param name="argument">Method call argument</param>
-        private void DrawTexture(int argument)
-        {
-            _drawManager.DrawTexture(this, argument);
         }
 
         /// <summary>

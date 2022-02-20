@@ -6,9 +6,16 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd.Manager
     {
         private const string _dummyAddress = "unknown.dummy.nintendo.net";
 
+        private NsdSettings _nsdSettings;
+
+        public FqdnResolver(NsdSettings nsdSettings)
+        {
+            _nsdSettings = nsdSettings;
+        }
+
         public ResultCode GetEnvironmentIdentifier(out string identifier)
         {
-            if (IManager.NsdSettings.TestMode)
+            if (_nsdSettings.TestMode)
             {
                 identifier = "err";
 
@@ -16,13 +23,13 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd.Manager
             }
             else
             {
-                identifier = IManager.NsdSettings.Environment;
+                identifier = _nsdSettings.Environment;
             }
 
             return ResultCode.Success;
         }
 
-        public static ResultCode Resolve(string address, out string resolvedAddress)
+        public ResultCode Resolve(ServiceCtx context, string address, out string resolvedAddress)
         {
             if (address == "api.sect.srv.nintendo.net"     ||
                 address == "ctest.cdn.nintendo.net"        ||
@@ -34,16 +41,16 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd.Manager
             else
             {
                 // TODO: Load Environment from the savedata.
-                address = address.Replace("%", IManager.NsdSettings.Environment);
+                address = address.Replace("%", _nsdSettings.Environment);
 
                 resolvedAddress = "";
 
-                if (IManager.NsdSettings == null)
+                if (_nsdSettings == null)
                 {
                     return ResultCode.SettingsNotInitialized;
                 }
 
-                if (!IManager.NsdSettings.Initialized)
+                if (!_nsdSettings.Initialized)
                 {
                     return ResultCode.SettingsNotLoaded;
                 }
@@ -77,14 +84,14 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd.Manager
 
             string address = Encoding.UTF8.GetString(addressBuffer).TrimEnd('\0');
 
-            resultCode = Resolve(address, out resolvedAddress);
+            resultCode = Resolve(context, address, out resolvedAddress);
 
             if (resultCode != ResultCode.Success)
             {
                 resolvedAddress = _dummyAddress;
             }
 
-            if (IManager.NsdSettings.TestMode)
+            if (_nsdSettings.TestMode)
             {
                 return ResultCode.Success;
             }

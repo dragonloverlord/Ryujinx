@@ -1,5 +1,4 @@
-﻿using ICSharpCode.SharpZipLib.Zip;
-using Ryujinx.Common;
+﻿using Ryujinx.Common;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.GAL;
@@ -10,6 +9,7 @@ using Ryujinx.Graphics.Shader.Translation;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -192,19 +192,19 @@ namespace Ryujinx.Graphics.Gpu.Shader.Cache
         /// <param name="entry">The given hash</param>
         /// <returns>The cached file if present or null</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static byte[] ReadFromArchive(ZipFile archive, Hash128 entry)
+        public static byte[] ReadFromArchive(ZipArchive archive, Hash128 entry)
         {
             if (archive != null)
             {
-                ZipEntry archiveEntry = archive.GetEntry($"{entry}");
+                ZipArchiveEntry archiveEntry = archive.GetEntry($"{entry}");
 
                 if (archiveEntry != null)
                 {
                     try
                     {
-                        byte[] result = new byte[archiveEntry.Size];
+                        byte[] result = new byte[archiveEntry.Length];
 
-                        using (Stream archiveStream = archive.GetInputStream(archiveEntry))
+                        using (Stream archiveStream = archiveEntry.Open())
                         {
                             archiveStream.Read(result);
 
@@ -350,26 +350,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.Cache
         }
 
         /// <summary>
-        /// Packs the tessellation parameters from the gpu accessor.
-        /// </summary>
-        /// <param name="gpuAccessor">The gpu accessor</param>
-        /// <returns>The packed tessellation parameters</returns>
-        private static byte GetTessellationModePacked(IGpuAccessor gpuAccessor)
-        {
-            byte value;
-
-            value = (byte)((int)gpuAccessor.QueryTessPatchType() & 3);
-            value |= (byte)(((int)gpuAccessor.QueryTessSpacing() & 3) << 2);
-
-            if (gpuAccessor.QueryTessCw())
-            {
-                value |= 0x10;
-            }
-
-            return value;
-        }
-
-        /// <summary>
         /// Create a new instance of <see cref="GuestGpuAccessorHeader"/> from an gpu accessor.
         /// </summary>
         /// <param name="gpuAccessor">The gpu accessor</param>
@@ -384,7 +364,6 @@ namespace Ryujinx.Graphics.Gpu.Shader.Cache
                 ComputeLocalMemorySize = gpuAccessor.QueryComputeLocalMemorySize(),
                 ComputeSharedMemorySize = gpuAccessor.QueryComputeSharedMemorySize(),
                 PrimitiveTopology = gpuAccessor.QueryPrimitiveTopology(),
-                TessellationModePacked = GetTessellationModePacked(gpuAccessor),
                 StateFlags = GetGpuStateFlags(gpuAccessor)
             };
         }
@@ -538,12 +517,8 @@ namespace Ryujinx.Graphics.Gpu.Shader.Cache
         /// <param name="archive">The archive to use</param>
         /// <param name="entries">The entries in the cache</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void EnsureArchiveUpToDate(string baseCacheDirectory, ZipFile archive, HashSet<Hash128> entries)
+        public static void EnsureArchiveUpToDate(string baseCacheDirectory, ZipArchive archive, HashSet<Hash128> entries)
         {
-            List<string> filesToDelete = new List<string>();
-
-            archive.BeginUpdate();
-
             foreach (Hash128 hash in entries)
             {
                 string cacheTempFilePath = GenCacheTempFilePath(baseCacheDirectory, hash);
@@ -552,24 +527,14 @@ namespace Ryujinx.Graphics.Gpu.Shader.Cache
                 {
                     string cacheHash = $"{hash}";
 
-                    ZipEntry entry = archive.GetEntry(cacheHash);
+                    ZipArchiveEntry entry = archive.GetEntry(cacheHash);
 
-                    if (entry != null)
-                    {
-                        archive.Delete(entry);
-                    }
+                    entry?.Delete();
 
-                    // We enforce deflate compression here to avoid possible incompatibilities on older version of Ryujinx that use System.IO.Compression.
-                    archive.Add(new StaticDiskDataSource(cacheTempFilePath), cacheHash, CompressionMethod.Deflated);
-                    filesToDelete.Add(cacheTempFilePath);
+                    archive.CreateEntryFromFile(cacheTempFilePath, cacheHash);
+
+                    File.Delete(cacheTempFilePath);
                 }
-            }
-
-            archive.CommitUpdate();
-
-            foreach (string filePath in filesToDelete)
-            {
-                File.Delete(filePath);
             }
         }
 

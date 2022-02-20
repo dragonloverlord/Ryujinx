@@ -2,11 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 
 namespace Ryujinx.Memory
 {
-    [SupportedOSPlatform("windows")]
     static class MemoryManagementWindows
     {
         private static readonly IntPtr InvalidHandleValue = new IntPtr(-1);
@@ -61,7 +59,9 @@ namespace Ryujinx.Memory
 
         static MemoryManagementWindows()
         {
-            UseWin10Placeholders = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17134);
+            Version version = Environment.OSVersion.Version;
+
+            UseWin10Placeholders = (version.Major == 10 && version.Build >= 17134) || version.Major > 10;
         }
 
         public static IntPtr Allocate(IntPtr size)

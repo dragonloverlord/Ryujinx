@@ -1,8 +1,11 @@
 using OpenTK.Graphics.OpenGL;
 using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.GAL;
+using Ryujinx.Graphics.Shader.CodeGen.Glsl;
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Ryujinx.Graphics.OpenGL
 {
@@ -26,10 +29,7 @@ namespace Ryujinx.Graphics.OpenGL
         private ProgramLinkStatus _status = ProgramLinkStatus.Incomplete;
         private IShader[] _shaders;
 
-        public bool HasFragmentShader;
-        public int FragmentOutputMap { get; }
-
-        public Program(IShader[] shaders, int fragmentOutputMap)
+        public Program(IShader[] shaders, TransformFeedbackDescriptor[] transformFeedbackDescriptors)
         {
             Handle = GL.CreateProgram();
 
@@ -37,23 +37,65 @@ namespace Ryujinx.Graphics.OpenGL
 
             for (int index = 0; index < shaders.Length; index++)
             {
-                Shader shader = (Shader)shaders[index];
+                int shaderHandle = ((Shader)shaders[index]).Handle;
 
-                if (shader.IsFragment)
+                GL.AttachShader(Handle, shaderHandle);
+            }
+
+            if (transformFeedbackDescriptors != null)
+            {
+                List<string> varyings = new List<string>();
+
+                int cbi = 0;
+
+                foreach (var tfd in transformFeedbackDescriptors.OrderBy(x => x.BufferIndex))
                 {
-                    HasFragmentShader = true;
+                    if (tfd.VaryingLocations.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    while (cbi < tfd.BufferIndex)
+                    {
+                        varyings.Add("gl_NextBuffer");
+
+                        cbi++;
+                    }
+
+                    int stride = Math.Min(128 * 4, (tfd.Stride + 3) & ~3);
+
+                    int j = 0;
+
+                    for (; j < tfd.VaryingLocations.Length && j * 4 < stride; j++)
+                    {
+                        byte location = tfd.VaryingLocations[j];
+
+                        varyings.Add(Varying.GetName(location) ?? "gl_SkipComponents1");
+
+                        j += Varying.GetSize(location) - 1;
+                    }
+
+                    int feedbackBytes = j * 4;
+
+                    while (feedbackBytes < stride)
+                    {
+                        int bytes = Math.Min(16, stride - feedbackBytes);
+
+                        varyings.Add($"gl_SkipComponents{(bytes / 4)}");
+
+                        feedbackBytes += bytes;
+                    }
                 }
 
-                GL.AttachShader(Handle, shader.Handle);
+                GL.TransformFeedbackVaryings(Handle, varyings.Count, varyings.ToArray(), TransformFeedbackMode.InterleavedAttribs);
             }
 
             GL.LinkProgram(Handle);
 
             _shaders = shaders;
-            FragmentOutputMap = fragmentOutputMap;
         }
 
-        public Program(ReadOnlySpan<byte> code, bool hasFragmentShader, int fragmentOutputMap)
+        public Program(ReadOnlySpan<byte> code)
         {
             BinaryFormat binaryFormat = (BinaryFormat)BinaryPrimitives.ReadInt32LittleEndian(code.Slice(code.Length - 4, 4));
 
@@ -66,9 +108,6 @@ namespace Ryujinx.Graphics.OpenGL
                     GL.ProgramBinary(Handle, binaryFormat, (IntPtr)ptr, code.Length - 4);
                 }
             }
-
-            HasFragmentShader = hasFragmentShader;
-            FragmentOutputMap = fragmentOutputMap;
         }
 
         public void Bind()

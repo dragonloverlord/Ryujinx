@@ -63,7 +63,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             };
         }
 
-        public static RegisterInfo GetRegisterInfo(string amiiboId, string nickname)
+        public static RegisterInfo GetRegisterInfo(string amiiboId)
         {
             VirtualAmiiboFile amiiboFile = LoadAmiiboFile(amiiboId);
 
@@ -72,7 +72,8 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 
             charInfo.SetFromStoreData(StoreData.BuildDefault(utilityImpl, 0));
 
-            charInfo.Nickname = Nickname.FromString(nickname);
+            // TODO: Maybe change the "no name" by the player name when user profile will be implemented.
+            // charInfo.Nickname = Nickname.FromString("Nickname");
 
             RegisterInfo registerInfo = new RegisterInfo()
             {
@@ -84,6 +85,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
                 Reserved1       = new Array64<byte>(),
                 Reserved2       = new Array58<byte>()
             };
+
             Encoding.ASCII.GetBytes("Ryujinx").CopyTo(registerInfo.Nickname.ToSpan());
 
             return registerInfo;
@@ -172,7 +174,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 
             if (File.Exists(filePath))
             {
-                virtualAmiiboFile = JsonSerializer.Deserialize<VirtualAmiiboFile>(File.ReadAllText(filePath), new JsonSerializerOptions(JsonSerializerDefaults.General));
+                virtualAmiiboFile = JsonSerializer.Deserialize<VirtualAmiiboFile>(File.ReadAllText(filePath));
             }
             else
             {

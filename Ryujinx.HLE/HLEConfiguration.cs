@@ -1,4 +1,4 @@
-﻿using LibHac.Tools.FsSystem;
+﻿using LibHac.FsSystem;
 using Ryujinx.Audio.Integration;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Graphics.GAL;
@@ -99,11 +99,6 @@ namespace Ryujinx.HLE
         internal readonly bool EnablePtc;
 
         /// <summary>
-        /// Control if the guest application should be told that there is a Internet connection available.
-        /// </summary>
-        internal readonly bool EnableInternetAccess;
-
-        /// <summary>
         /// Control LibHac's integrity check level.
         /// </summary>
         /// <remarks>This cannot be changed after <see cref="Switch"/> instantiation.</remarks>
@@ -127,8 +122,8 @@ namespace Ryujinx.HLE
         /// <remarks>This cannot be changed after <see cref="Switch"/> instantiation.</remarks>
         internal readonly string TimeZone;
 
+
         /// <summary>
-        /// Type of the memory manager used on CPU emulation.
         /// </summary>
         public MemoryManagerMode MemoryManagerMode { internal get; set; }
 
@@ -143,11 +138,6 @@ namespace Ryujinx.HLE
         /// Aspect Ratio applied to the renderer window by the SurfaceFlinger service.
         /// </summary>
         public AspectRatio AspectRatio { get; set; }
-
-        /// <summary>
-        /// The audio volume level.
-        /// </summary>
-        public float AudioVolume { get; set; }
 
         /// <summary>
         /// An action called when HLE force a refresh of output after docked mode changed.
@@ -168,15 +158,13 @@ namespace Ryujinx.HLE
                                 bool                   enableVsync,
                                 bool                   enableDockedMode,
                                 bool                   enablePtc,
-                                bool                   enableInternetAccess,
                                 IntegrityCheckLevel    fsIntegrityCheckLevel,
                                 int                    fsGlobalAccessLogMode,
                                 long                   systemTimeOffset,
                                 string                 timeZone,
                                 MemoryManagerMode      memoryManagerMode,
                                 bool                   ignoreMissingServices,
-                                AspectRatio            aspectRatio,
-                                float                  audioVolume)
+                                AspectRatio            aspectRatio)
         {
             VirtualFileSystem      = virtualFileSystem;
             LibHacHorizonManager   = libHacHorizonManager;
@@ -192,7 +180,6 @@ namespace Ryujinx.HLE
             EnableVsync            = enableVsync;
             EnableDockedMode       = enableDockedMode;
             EnablePtc              = enablePtc;
-            EnableInternetAccess   = enableInternetAccess;
             FsIntegrityCheckLevel  = fsIntegrityCheckLevel;
             FsGlobalAccessLogMode  = fsGlobalAccessLogMode;
             SystemTimeOffset       = systemTimeOffset;
@@ -200,7 +187,6 @@ namespace Ryujinx.HLE
             MemoryManagerMode      = memoryManagerMode;
             IgnoreMissingServices  = ignoreMissingServices;
             AspectRatio            = aspectRatio;
-            AudioVolume            = audioVolume;
         }
     }
 }

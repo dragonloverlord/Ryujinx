@@ -1,22 +1,21 @@
 using LibHac;
-using LibHac.Common;
 using LibHac.Fs;
-using Path = LibHac.FsSrv.Sf.Path;
+using LibHac.FsSrv.Sf;
 
 namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
 {
     class IFileSystem : DisposableIpcService
     {
-        private SharedRef<LibHac.FsSrv.Sf.IFileSystem> _fileSystem;
+        private ReferenceCountedDisposable<LibHac.FsSrv.Sf.IFileSystem> _fileSystem;
 
-        public IFileSystem(ref SharedRef<LibHac.FsSrv.Sf.IFileSystem> provider)
+        public IFileSystem(ReferenceCountedDisposable<LibHac.FsSrv.Sf.IFileSystem> provider)
         {
-            _fileSystem = SharedRef<LibHac.FsSrv.Sf.IFileSystem>.CreateMove(ref provider);
+            _fileSystem = provider;
         }
 
-        public SharedRef<LibHac.FsSrv.Sf.IFileSystem> GetBaseFileSystem()
+        public ReferenceCountedDisposable<LibHac.FsSrv.Sf.IFileSystem> GetBaseFileSystem()
         {
-            return SharedRef<LibHac.FsSrv.Sf.IFileSystem>.CreateCopy(in _fileSystem);
+            return _fileSystem;
         }
 
         [CommandHipc(0)]
@@ -30,7 +29,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
 
             long size = context.RequestData.ReadInt64();
 
-            return (ResultCode)_fileSystem.Get.CreateFile(in name, size, createOption).Value;
+            return (ResultCode)_fileSystem.Target.CreateFile(in name, size, createOption).Value;
         }
 
         [CommandHipc(1)]
@@ -39,7 +38,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            return (ResultCode)_fileSystem.Get.DeleteFile(in name).Value;
+            return (ResultCode)_fileSystem.Target.DeleteFile(in name).Value;
         }
 
         [CommandHipc(2)]
@@ -48,7 +47,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            return (ResultCode)_fileSystem.Get.CreateDirectory(in name).Value;
+            return (ResultCode)_fileSystem.Target.CreateDirectory(in name).Value;
         }
 
         [CommandHipc(3)]
@@ -57,7 +56,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            return (ResultCode)_fileSystem.Get.DeleteDirectory(in name).Value;
+            return (ResultCode)_fileSystem.Target.DeleteDirectory(in name).Value;
         }
 
         [CommandHipc(4)]
@@ -66,7 +65,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            return (ResultCode)_fileSystem.Get.DeleteDirectoryRecursively(in name).Value;
+            return (ResultCode)_fileSystem.Target.DeleteDirectoryRecursively(in name).Value;
         }
 
         [CommandHipc(5)]
@@ -76,7 +75,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
             ref readonly Path currentName = ref FileSystemProxyHelper.GetSfPath(context, index: 0);
             ref readonly Path newName = ref FileSystemProxyHelper.GetSfPath(context, index: 1);
 
-            return (ResultCode)_fileSystem.Get.RenameFile(in currentName, in newName).Value;
+            return (ResultCode)_fileSystem.Target.RenameFile(in currentName, in newName).Value;
         }
 
         [CommandHipc(6)]
@@ -86,7 +85,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
             ref readonly Path currentName = ref FileSystemProxyHelper.GetSfPath(context, index: 0);
             ref readonly Path newName = ref FileSystemProxyHelper.GetSfPath(context, index: 1);
 
-            return (ResultCode)_fileSystem.Get.RenameDirectory(in currentName, in newName).Value;
+            return (ResultCode)_fileSystem.Target.RenameDirectory(in currentName, in newName).Value;
         }
 
         [CommandHipc(7)]
@@ -95,7 +94,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            Result result = _fileSystem.Get.GetEntryType(out uint entryType, in name);
+            Result result = _fileSystem.Target.GetEntryType(out uint entryType, in name);
 
             context.ResponseData.Write((int)entryType);
 
@@ -109,13 +108,12 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
             uint mode = context.RequestData.ReadUInt32();
 
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
-            using var file = new SharedRef<LibHac.FsSrv.Sf.IFile>();
 
-            Result result = _fileSystem.Get.OpenFile(ref file.Ref(), in name, mode);
+            Result result = _fileSystem.Target.OpenFile(out ReferenceCountedDisposable<LibHac.FsSrv.Sf.IFile> file, in name, mode);
 
             if (result.IsSuccess())
             {
-                IFile fileInterface = new IFile(ref file.Ref());
+                IFile fileInterface = new IFile(file);
 
                 MakeObject(context, fileInterface);
             }
@@ -130,13 +128,12 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
             uint mode = context.RequestData.ReadUInt32();
 
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
-            using var dir = new SharedRef<LibHac.FsSrv.Sf.IDirectory>();
 
-            Result result = _fileSystem.Get.OpenDirectory(ref dir.Ref(), name, mode);
+            Result result = _fileSystem.Target.OpenDirectory(out ReferenceCountedDisposable<LibHac.FsSrv.Sf.IDirectory> dir, name, mode);
 
             if (result.IsSuccess())
             {
-                IDirectory dirInterface = new IDirectory(ref dir.Ref());
+                IDirectory dirInterface = new IDirectory(dir);
 
                 MakeObject(context, dirInterface);
             }
@@ -148,7 +145,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         // Commit()
         public ResultCode Commit(ServiceCtx context)
         {
-            return (ResultCode)_fileSystem.Get.Commit().Value;
+            return (ResultCode)_fileSystem.Target.Commit().Value;
         }
 
         [CommandHipc(11)]
@@ -157,7 +154,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            Result result = _fileSystem.Get.GetFreeSpaceSize(out long size, in name);
+            Result result = _fileSystem.Target.GetFreeSpaceSize(out long size, in name);
 
             context.ResponseData.Write(size);
 
@@ -170,7 +167,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            Result result = _fileSystem.Get.GetTotalSpaceSize(out long size, in name);
+            Result result = _fileSystem.Target.GetTotalSpaceSize(out long size, in name);
 
             context.ResponseData.Write(size);
 
@@ -183,7 +180,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            return (ResultCode)_fileSystem.Get.CleanDirectoryRecursively(in name).Value;
+            return (ResultCode)_fileSystem.Target.CleanDirectoryRecursively(in name).Value;
         }
 
         [CommandHipc(14)]
@@ -192,7 +189,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             ref readonly Path name = ref FileSystemProxyHelper.GetSfPath(context);
 
-            Result result = _fileSystem.Get.GetFileTimeStampRaw(out FileTimeStampRaw timestamp, in name);
+            Result result = _fileSystem.Target.GetFileTimeStampRaw(out FileTimeStampRaw timestamp, in name);
 
             context.ResponseData.Write(timestamp.Created);
             context.ResponseData.Write(timestamp.Modified);
@@ -212,7 +209,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy
         {
             if (isDisposing)
             {
-                _fileSystem.Destroy();
+                _fileSystem?.Dispose();
             }
         }
     }

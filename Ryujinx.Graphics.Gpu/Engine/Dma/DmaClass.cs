@@ -1,5 +1,4 @@
 ﻿using Ryujinx.Common;
-using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.Device;
 using Ryujinx.Graphics.Gpu.Engine.Threed;
 using Ryujinx.Graphics.Texture;
@@ -85,7 +84,9 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
                 }
 
                 int alignWidth = Constants.StrideAlignment / bpp;
-                return stride / bpp == BitUtils.AlignUp(xCount, alignWidth);
+                return tex.RegionX == 0 &&
+                       tex.RegionY == 0 &&
+                       stride / bpp == BitUtils.AlignUp(xCount, alignWidth);
             }
             else
             {
@@ -98,32 +99,10 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
         }
 
         /// <summary>
-        /// Releases a semaphore for a given LaunchDma method call.
-        /// </summary>
-        /// <param name="argument">The LaunchDma call argument</param>
-        private void ReleaseSemaphore(int argument)
-        {
-            LaunchDmaSemaphoreType type = (LaunchDmaSemaphoreType)((argument >> 3) & 0x3);
-            if (type != LaunchDmaSemaphoreType.None)
-            {
-                ulong address = ((ulong)_state.State.SetSemaphoreA << 32) | _state.State.SetSemaphoreB;
-                if (type == LaunchDmaSemaphoreType.ReleaseOneWordSemaphore)
-                {
-                    _channel.MemoryManager.Write(address, _state.State.SetSemaphorePayload);
-                }
-                else /* if (type == LaunchDmaSemaphoreType.ReleaseFourWordSemaphore) */
-                {
-                    _channel.MemoryManager.Write(address + 8, _context.GetTimestamp());
-                    _channel.MemoryManager.Write(address, (ulong)_state.State.SetSemaphorePayload);
-                }
-            }
-        }
-
-        /// <summary>
         /// Performs a buffer to buffer, or buffer to texture copy.
         /// </summary>
-        /// <param name="argument">The LaunchDma call argument</param>
-        private void DmaCopy(int argument)
+        /// <param name="argument">Method call argument</param>
+        private void LaunchDma(int argument)
         {
             var memoryManager = _channel.MemoryManager;
 
@@ -159,20 +138,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
                 var dst = Unsafe.As<uint, DmaTexture>(ref _state.State.SetDstBlockSize);
                 var src = Unsafe.As<uint, DmaTexture>(ref _state.State.SetSrcBlockSize);
 
-                int srcRegionX = 0, srcRegionY = 0, dstRegionX = 0, dstRegionY = 0;
-
-                if (!srcLinear)
-                {
-                    srcRegionX = src.RegionX;
-                    srcRegionY = src.RegionY;
-                }
-
-                if (!dstLinear)
-                {
-                    dstRegionX = dst.RegionX;
-                    dstRegionY = dst.RegionY;
-                }
-
                 int srcStride = (int)_state.State.PitchIn;
                 int dstStride = (int)_state.State.PitchOut;
 
@@ -194,8 +159,8 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
                     dst.MemoryLayout.UnpackGobBlocksInZ(),
                     dstBpp);
 
-                (int srcBaseOffset, int srcSize) = srcCalculator.GetRectangleRange(srcRegionX, srcRegionY, xCount, yCount);
-                (int dstBaseOffset, int dstSize) = dstCalculator.GetRectangleRange(dstRegionX, dstRegionY, xCount, yCount);
+                (int srcBaseOffset, int srcSize) = srcCalculator.GetRectangleRange(src.RegionX, src.RegionY, xCount, yCount);
+                (int dstBaseOffset, int dstSize) = dstCalculator.GetRectangleRange(dst.RegionX, dst.RegionY, xCount, yCount);
 
                 if (srcLinear && srcStride < 0)
                 {
@@ -235,7 +200,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
                                 target.Info.Height,
                                 1,
                                 1,
-                                xCount * srcBpp,
                                 srcStride,
                                 target.Info.FormatInfo.BytesPerPixel,
                                 srcSpan);
@@ -245,9 +209,8 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
                             data = LayoutConverter.ConvertBlockLinearToLinear(
                                 src.Width,
                                 src.Height,
-                                src.Depth,
                                 1,
-                                1,
+                                target.Info.Levels,
                                 1,
                                 1,
                                 1,
@@ -259,7 +222,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
                                 srcSpan);
                         }
 
-                        target.SynchronizeMemory();
                         target.SetData(data);
                         target.SignalModified();
 
@@ -284,13 +246,13 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
 
                         for (int y = 0; y < yCount; y++)
                         {
-                            srcCalculator.SetY(srcRegionY + y);
-                            dstCalculator.SetY(dstRegionY + y);
+                            srcCalculator.SetY(src.RegionY + y);
+                            dstCalculator.SetY(dst.RegionY + y);
 
                             for (int x = 0; x < xCount; x++)
                             {
-                                int srcOffset = srcCalculator.GetOffset(srcRegionX + x);
-                                int dstOffset = dstCalculator.GetOffset(dstRegionX + x);
+                                int srcOffset = srcCalculator.GetOffset(src.RegionX + x);
+                                int dstOffset = dstCalculator.GetOffset(dst.RegionX + x);
 
                                 *(T*)(dstBase + dstOffset) = *(T*)(srcBase + srcOffset);
                             }
@@ -333,16 +295,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.Dma
                     memoryManager.Physical.BufferCache.CopyBuffer(memoryManager, srcGpuVa, dstGpuVa, size);
                 }
             }
-        }
-
-        /// <summary>
-        /// Performs a buffer to buffer, or buffer to texture copy, then optionally releases a semaphore.
-        /// </summary>
-        /// <param name="argument">Method call argument</param>
-        private void LaunchDma(int argument)
-        {
-            DmaCopy(argument);
-            ReleaseSemaphore(argument);
         }
     }
 }

@@ -7,8 +7,6 @@ namespace Ryujinx.HLE.HOS.Services
     {
         private int _disposeState;
 
-        public DisposableIpcService(ServerBase server = null) : base(server) { }
-
         protected abstract void Dispose(bool isDisposing);
 
         public void Dispose()

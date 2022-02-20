@@ -6,6 +6,5 @@
         public Key Screenshot { get; set; }
         public Key ShowUi { get; set; }
         public Key Pause { get; set; }
-        public Key ToggleMute { get; set; }
     }
 }

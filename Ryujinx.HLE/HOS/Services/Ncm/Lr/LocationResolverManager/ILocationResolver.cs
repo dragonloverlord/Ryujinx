@@ -1,4 +1,4 @@
-﻿using LibHac.FsSystem;
+﻿using LibHac.FsSystem.NcaUtils;
 using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.FileSystem.Content;
 using System.Text;

@@ -40,33 +40,19 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
                     context.Config.SetUsedFeature(FeatureFlags.IaIndexing);
                 }
-                else if (op.SrcB == RegisterConsts.RegisterZeroIndex || op.P)
+                else if (op.SrcB == RegisterConsts.RegisterZeroIndex)
                 {
-                    int offset = FixedFuncToUserAttribute(context.Config, op.Imm11 + index * 4, op.O);
+                    Operand src = Attribute(op.Imm11 + index * 4);
 
-                    context.FlagAttributeRead(offset);
-
-                    if (op.O)
-                    {
-                        offset |= AttributeConsts.LoadOutputMask;
-                    }
-
-                    Operand src = op.P ? AttributePerPatch(offset) : Attribute(offset);
+                    context.FlagAttributeRead(src.Value);
 
                     context.Copy(Register(rd), src);
                 }
                 else
                 {
-                    int offset = FixedFuncToUserAttribute(context.Config, op.Imm11 + index * 4, op.O);
+                    Operand src = Const(op.Imm11 + index * 4);
 
-                    context.FlagAttributeRead(offset);
-
-                    if (op.O)
-                    {
-                        offset |= AttributeConsts.LoadOutputMask;
-                    }
-
-                    Operand src = Const(offset);
+                    context.FlagAttributeRead(src.Value);
 
                     context.Copy(Register(rd), context.LoadAttribute(src, Const(0), primVertex));
                 }
@@ -97,20 +83,9 @@ namespace Ryujinx.Graphics.Shader.Instructions
                 }
                 else
                 {
-                    // TODO: Support indirect stores using Ra.
+                    Operand dest = Attribute(op.Imm11 + index * 4);
 
-                    int offset = op.Imm11 + index * 4;
-
-                    if (!context.Config.IsUsedOutputAttribute(offset))
-                    {
-                        return;
-                    }
-
-                    offset = FixedFuncToUserAttribute(context.Config, offset, isOutput: true);
-
-                    context.FlagAttributeWritten(offset);
-
-                    Operand dest = op.P ? AttributePerPatch(offset) : Attribute(offset);
+                    context.FlagAttributeWritten(dest.Value);
 
                     context.Copy(dest, Register(rd));
                 }
@@ -125,8 +100,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             Operand res;
 
-            bool isFixedFunc = false;
-
             if (op.Idx)
             {
                 Operand userAttrOffset = context.ISubtract(GetSrcReg(context, op.SrcA), Const(AttributeConsts.UserAttributeBase));
@@ -139,7 +112,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
             }
             else
             {
-                isFixedFunc = TryFixedFuncToUserAttributeIpa(context, op.Imm10, out res);
+                res = Attribute(op.Imm10);
 
                 if (op.Imm10 >= AttributeConsts.UserAttributeBase && op.Imm10 < AttributeConsts.UserAttributeEnd)
                 {
@@ -152,7 +125,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
                 }
             }
 
-            if (op.IpaOp == IpaOp.Multiply && !isFixedFunc)
+            if (op.IpaOp == IpaOp.Multiply)
             {
                 Operand srcB = GetSrcReg(context, op.SrcB);
 
@@ -212,73 +185,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
             {
                 context.EndPrimitive();
             }
-        }
-
-        private static bool TryFixedFuncToUserAttributeIpa(EmitterContext context, int attr, out Operand selectedAttr)
-        {
-            if (attr >= AttributeConsts.FrontColorDiffuseR && attr < AttributeConsts.BackColorDiffuseR)
-            {
-                // TODO: If two sided rendering is enabled, then this should return
-                // FrontColor if the fragment is front facing, and back color otherwise.
-                int index = (attr - AttributeConsts.FrontColorDiffuseR) >> 4;
-                int userAttrIndex = context.Config.GetFreeUserAttribute(isOutput: false, index);
-                Operand frontAttr = Attribute(AttributeConsts.UserAttributeBase + userAttrIndex * 16 + (attr & 0xf));
-
-                context.Config.SetInputUserAttributeFixedFunc(userAttrIndex);
-
-                selectedAttr = frontAttr;
-                return true;
-            }
-            else if (attr >= AttributeConsts.BackColorDiffuseR && attr < AttributeConsts.ClipDistance0)
-            {
-                selectedAttr = ConstF(((attr >> 2) & 3) == 3 ? 1f : 0f);
-                return true;
-            }
-            else if (attr >= AttributeConsts.TexCoordBase && attr < AttributeConsts.TexCoordEnd)
-            {
-                selectedAttr = Attribute(FixedFuncToUserAttribute(context.Config, attr, AttributeConsts.TexCoordBase, 4, isOutput: false));
-                return true;
-            }
-
-            selectedAttr = Attribute(attr);
-            return false;
-        }
-
-        private static int FixedFuncToUserAttribute(ShaderConfig config, int attr, bool isOutput)
-        {
-            if (attr >= AttributeConsts.FrontColorDiffuseR && attr < AttributeConsts.ClipDistance0)
-            {
-                attr = FixedFuncToUserAttribute(config, attr, AttributeConsts.FrontColorDiffuseR, 0, isOutput);
-            }
-            else if (attr >= AttributeConsts.TexCoordBase && attr < AttributeConsts.TexCoordEnd)
-            {
-                attr = FixedFuncToUserAttribute(config, attr, AttributeConsts.TexCoordBase, 4, isOutput);
-            }
-
-            return attr;
-        }
-
-        private static int FixedFuncToUserAttribute(ShaderConfig config, int attr, int baseAttr, int baseIndex, bool isOutput)
-        {
-            int index = (attr - baseAttr) >> 4;
-            int userAttrIndex = config.GetFreeUserAttribute(isOutput, index);
-
-            if ((uint)userAttrIndex < Constants.MaxAttributes)
-            {
-                userAttrIndex += baseIndex;
-                attr = AttributeConsts.UserAttributeBase + userAttrIndex * 16 + (attr & 0xf);
-
-                if (isOutput)
-                {
-                    config.SetOutputUserAttributeFixedFunc(userAttrIndex);
-                }
-                else
-                {
-                    config.SetInputUserAttributeFixedFunc(userAttrIndex);
-                }
-            }
-
-            return attr;
         }
     }
 }

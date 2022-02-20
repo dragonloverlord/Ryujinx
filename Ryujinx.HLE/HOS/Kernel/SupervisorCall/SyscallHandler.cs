@@ -19,22 +19,7 @@ namespace Ryujinx.HLE.HOS.Kernel.SupervisorCall
 
         public void SvcCall(object sender, InstExceptionEventArgs e)
         {
-            KThread currentThread = KernelStatic.GetCurrentThread();
-
-            if (currentThread.Owner != null &&
-                currentThread.GetUserDisableCount() != 0 &&
-                currentThread.Owner.PinnedThreads[currentThread.CurrentCore] == null)
-            {
-                _context.CriticalSection.Enter();
-
-                currentThread.Owner.PinThread(currentThread);
-
-                currentThread.SetUserInterruptFlag();
-
-                _context.CriticalSection.Leave();
-            }
-
-            ExecutionContext context = (ExecutionContext)sender; 
+            ExecutionContext context = (ExecutionContext)sender;
 
             if (context.IsAarch32)
             {
@@ -58,6 +43,13 @@ namespace Ryujinx.HLE.HOS.Kernel.SupervisorCall
 
                 svcFunc(_syscall64, context);
             }
+
+            PostSvcHandler();
+        }
+
+        private void PostSvcHandler()
+        {
+            KThread currentThread = KernelStatic.GetCurrentThread();
 
             currentThread.HandlePostSyscall();
         }

@@ -106,7 +106,7 @@ namespace Ryujinx.Audio.Common
             _bufferAppendedCount = 0;
             _bufferRegisteredCount = 0;
             _bufferReleasedCount = 0;
-            _volume = deviceSession.GetVolume();
+            _volume = 1.0f;
             _state = AudioDeviceState.Stopped;
         }
 
@@ -175,7 +175,7 @@ namespace Ryujinx.Audio.Common
 
             for (int i = 0; i < buffersToFlush.Length; i++)
             {
-                buffersToFlush[i] = _buffers[hardwareBufferIndex];
+                buffersToFlush[i] = _buffers[_hardwareBufferIndex];
 
                 _bufferAppendedCount--;
                 _bufferRegisteredCount++;

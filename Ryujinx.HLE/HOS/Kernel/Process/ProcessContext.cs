@@ -18,10 +18,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             throw new NotSupportedException();
         }
 
-        public void InvalidateCacheRegion(ulong address, ulong size)
-        {
-        }
-
         public void Dispose()
         {
         }

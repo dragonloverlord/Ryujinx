@@ -167,7 +167,9 @@ namespace ARMeilleure.Instructions
 
         private static void EmitBarrier(ArmEmitterContext context)
         {
-            context.MemoryBarrier();
+            // Note: This barrier is most likely not necessary, and probably
+            // doesn't make any difference since we need to do a ton of stuff
+            // (software MMU emulation) to read or write anything anyway.
         }
     }
 }

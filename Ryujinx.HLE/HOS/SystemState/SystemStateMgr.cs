@@ -22,8 +22,7 @@ namespace Ryujinx.HLE.HOS.SystemState
             "fr-CA",
             "es-419",
             "zh-Hans",
-            "zh-Hant",
-            "pt-BR"
+            "zh-Hant"
         };
 
         internal long DesiredKeyboardLayout { get; private set; }
@@ -60,7 +59,7 @@ namespace Ryujinx.HLE.HOS.SystemState
                 SystemLanguage.TraditionalChinese => TitleLanguage.Taiwanese,
                 SystemLanguage.Chinese or
                 SystemLanguage.SimplifiedChinese  => TitleLanguage.Chinese,
-                _                                 => Enum.Parse<TitleLanguage>(Enum.GetName<SystemLanguage>(language)),
+                _                                 => Enum.Parse<TitleLanguage>(Enum.GetName(typeof(SystemLanguage), language)),
             };
         }
 

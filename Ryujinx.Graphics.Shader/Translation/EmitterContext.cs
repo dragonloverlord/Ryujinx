@@ -10,24 +10,24 @@ namespace Ryujinx.Graphics.Shader.Translation
 {
     class EmitterContext
     {
-        public DecodedProgram Program { get; }
+        public Block  CurrBlock { get; set; }
+        public InstOp CurrOp    { get; set; }
+
         public ShaderConfig Config { get; }
 
         public bool IsNonMain { get; }
 
-        public Block CurrBlock { get; set; }
-        public InstOp CurrOp { get; set; }
-
         public int OperationsCount => _operations.Count;
 
+        private readonly IReadOnlyDictionary<ulong, int> _funcs;
         private readonly List<Operation> _operations;
         private readonly Dictionary<ulong, Operand> _labels;
 
-        public EmitterContext(DecodedProgram program, ShaderConfig config, bool isNonMain)
+        public EmitterContext(ShaderConfig config, bool isNonMain, IReadOnlyDictionary<ulong, int> funcs)
         {
-            Program = program;
             Config = config;
             IsNonMain = isNonMain;
+            _funcs = funcs;
             _operations = new List<Operation>();
             _labels = new Dictionary<ulong, Operand>();
         }
@@ -154,6 +154,11 @@ namespace Ryujinx.Graphics.Shader.Translation
             return label;
         }
 
+        public int GetFunctionId(ulong address)
+        {
+            return _funcs[address];
+        }
+
         public void PrepareForReturn()
         {
             if (!IsNonMain && Config.Stage == ShaderStage.Fragment)
@@ -167,15 +172,15 @@ namespace Ryujinx.Graphics.Shader.Translation
                     this.Copy(dest, src);
                 }
 
-                bool supportsBgra = Config.GpuAccessor.QueryHostSupportsBgraFormat();
                 int regIndexBase = 0;
 
                 for (int rtIndex = 0; rtIndex < 8; rtIndex++)
                 {
+                    OmapTarget target = Config.OmapTargets[rtIndex];
+
                     for (int component = 0; component < 4; component++)
                     {
-                        bool componentEnabled = (Config.OmapTargets & (1 << (rtIndex * 4 + component))) != 0;
-                        if (!componentEnabled)
+                        if (!target.ComponentEnabled(component))
                         {
                             continue;
                         }
@@ -185,12 +190,12 @@ namespace Ryujinx.Graphics.Shader.Translation
                         Operand src = Register(regIndexBase + component, RegisterType.Gpr);
 
                         // Perform B <-> R swap if needed, for BGRA formats (not supported on OpenGL).
-                        if (!supportsBgra && (component == 0 || component == 2))
+                        if (component == 0 || component == 2)
                         {
                             Operand isBgra = Attribute(AttributeConsts.FragmentOutputIsBgraBase + rtIndex * 4);
 
                             Operand lblIsBgra = Label();
-                            Operand lblEnd = Label();
+                            Operand lblEnd    = Label();
 
                             this.BranchIfTrue(lblIsBgra, isBgra);
 
@@ -209,10 +214,9 @@ namespace Ryujinx.Graphics.Shader.Translation
                         }
                     }
 
-                    bool targetEnabled = (Config.OmapTargets & (0xf << (rtIndex * 4))) != 0;
-                    if (targetEnabled)
+                    if (target.Enabled)
                     {
-                        Config.SetOutputUserAttribute(rtIndex, perPatch: false);
+                        Config.SetOutputUserAttribute(rtIndex);
                         regIndexBase += 4;
                     }
                 }

@@ -1,10 +1,11 @@
-﻿using LibHac.Tools.FsSystem;
+﻿using LibHac.FsSystem;
 using Ryujinx.Common;
 using Ryujinx.Cpu;
 using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Memory;
 using Ryujinx.HLE.HOS.Kernel.Process;
 using Ryujinx.HLE.Loaders.Executables;
+using Ryujinx.HLE.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -58,23 +59,23 @@ namespace Ryujinx.HLE.HOS.Services.Ro
             {
                 return ResultCode.InvalidNrr;
             }
-            else if (header.Size != nrrSize)
+            else if (header.NrrSize != nrrSize)
             {
                 return ResultCode.InvalidSize;
             }
 
             List<byte[]> hashes = new List<byte[]>();
 
-            for (int i = 0; i < header.HashesCount; i++)
+            for (int i = 0; i < header.HashCount; i++)
             {
-                byte[] hash = new byte[0x20];
+                byte[] temp = new byte[0x20];
 
-                _owner.CpuMemory.Read(nrrAddress + header.HashesOffset + (uint)(i * 0x20), hash);
+                _owner.CpuMemory.Read(nrrAddress + header.HashOffset + (uint)(i * 0x20), temp);
 
-                hashes.Add(hash);
+                hashes.Add(temp);
             }
 
-            nrrInfo = new NrrInfo(nrrAddress, header, hashes);
+            nrrInfo = new NrrInfo((ulong)nrrAddress, header, hashes);
 
             return ResultCode.Success;
         }
@@ -418,7 +419,7 @@ namespace Ryujinx.HLE.HOS.Services.Ro
             return (ResultCode)result;
         }
 
-        private ResultCode IsInitialized(ulong pid)
+        private ResultCode IsInitialized(long pid)
         {
             if (_owner != null && _owner.Pid == pid)
             {

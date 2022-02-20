@@ -75,7 +75,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio
 
             string inputDeviceName = MemoryHelper.ReadAsciiString(context.Memory, deviceNameInputPosition, (long)deviceNameInputSize);
 
-            ResultCode resultCode = _impl.OpenAudioOut(context, out string outputDeviceName, out AudioOutputConfiguration outputConfiguration, out IAudioOut obj, inputDeviceName, ref inputConfiguration, appletResourceUserId, processHandle, context.Device.Configuration.AudioVolume);
+            ResultCode resultCode = _impl.OpenAudioOut(context, out string outputDeviceName, out AudioOutputConfiguration outputConfiguration, out IAudioOut obj, inputDeviceName, ref inputConfiguration, appletResourceUserId, processHandle);
 
             if (resultCode == ResultCode.Success)
             {
@@ -142,7 +142,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio
 
             string inputDeviceName = MemoryHelper.ReadAsciiString(context.Memory, deviceNameInputPosition, (long)deviceNameInputSize);
 
-            ResultCode resultCode = _impl.OpenAudioOut(context, out string outputDeviceName, out AudioOutputConfiguration outputConfiguration, out IAudioOut obj, inputDeviceName, ref inputConfiguration, appletResourceUserId, processHandle, context.Device.Configuration.AudioVolume);
+            ResultCode resultCode = _impl.OpenAudioOut(context, out string outputDeviceName, out AudioOutputConfiguration outputConfiguration, out IAudioOut obj, inputDeviceName, ref inputConfiguration, appletResourceUserId, processHandle);
 
             if (resultCode == ResultCode.Success)
             {

@@ -3,8 +3,7 @@ using LibHac.Common;
 using LibHac.Fs;
 using LibHac.Fs.Fsa;
 using LibHac.FsSystem;
-using LibHac.Tools.FsSystem;
-using LibHac.Tools.FsSystem.NcaUtils;
+using LibHac.FsSystem.NcaUtils;
 using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.FileSystem.Content;
 using SixLabors.ImageSharp;
@@ -131,14 +130,12 @@ namespace Ryujinx.Ui.Windows
 
                         if (item.Type == DirectoryEntryType.File && item.FullPath.Contains("chara") && item.FullPath.Contains("szs"))
                         {
-                            using var file = new UniqueRef<IFile>();
-
-                            romfs.OpenFile(ref file.Ref(), ("/" + item.FullPath).ToU8Span(), OpenMode.Read).ThrowIfFailure();
+                            romfs.OpenFile(out IFile file, ("/" + item.FullPath).ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
                             using (MemoryStream stream    = new MemoryStream())
                             using (MemoryStream streamPng = new MemoryStream())
                             {
-                                file.Get.AsStream().CopyTo(stream);
+                                file.AsStream().CopyTo(stream);
 
                                 stream.Position = 0;
 

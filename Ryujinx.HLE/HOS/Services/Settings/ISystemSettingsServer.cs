@@ -3,7 +3,7 @@ using LibHac.Common;
 using LibHac.Fs;
 using LibHac.Fs.Fsa;
 using LibHac.FsSystem;
-using LibHac.Tools.FsSystem.NcaUtils;
+using LibHac.FsSystem.NcaUtils;
 using Ryujinx.Common.Logging;
 using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.HOS.SystemState;
@@ -310,15 +310,13 @@ namespace Ryujinx.HLE.HOS.Services.Settings
 
                 IFileSystem firmwareRomFs = firmwareContent.OpenFileSystem(NcaSectionType.Data, device.System.FsIntegrityCheckLevel);
 
-                using var firmwareFile = new UniqueRef<IFile>();
-
-                Result result = firmwareRomFs.OpenFile(ref firmwareFile.Ref(), "/file".ToU8Span(), OpenMode.Read);
+                Result result = firmwareRomFs.OpenFile(out IFile firmwareFile, "/file".ToU8Span(), OpenMode.Read);
                 if (result.IsFailure())
                 {
                     return null;
                 }
 
-                result = firmwareFile.Get.GetSize(out long fileSize);
+                result = firmwareFile.GetSize(out long fileSize);
                 if (result.IsFailure())
                 {
                     return null;
@@ -326,7 +324,7 @@ namespace Ryujinx.HLE.HOS.Services.Settings
 
                 byte[] data = new byte[fileSize];
 
-                result = firmwareFile.Get.Read(out _, 0, data);
+                result = firmwareFile.Read(out _, 0, data);
                 if (result.IsFailure())
                 {
                     return null;

@@ -76,7 +76,7 @@ namespace Ryujinx.Audio.Renderer.Dsp.Command
             DataSourceHelper.WaveBufferInformation info = new DataSourceHelper.WaveBufferInformation
             {
                 SourceSampleRate = SampleRate,
-                SampleFormat = SampleFormat.PcmFloat,
+                SampleFormat = SampleFormat.PcmInt16,
                 Pitch = Pitch,
                 DecodingBehaviour = DecodingBehaviour,
                 ExtraParameter = 0,

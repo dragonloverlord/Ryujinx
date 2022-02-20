@@ -13,8 +13,6 @@ namespace Ryujinx.Graphics.Shader.StructuredIr
         ShuffleDown            = 1 << 5,
         ShuffleUp              = 1 << 6,
         ShuffleXor             = 1 << 7,
-        StoreSharedSmallInt    = 1 << 8,
-        StoreStorageSmallInt   = 1 << 9,
-        SwizzleAdd             = 1 << 10
+        SwizzleAdd             = 1 << 8
     }
 }

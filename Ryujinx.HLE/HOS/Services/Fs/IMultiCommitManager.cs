@@ -1,25 +1,24 @@
 ﻿using LibHac;
-using LibHac.Common;
 using Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy;
 
 namespace Ryujinx.HLE.HOS.Services.Fs
 {
     class IMultiCommitManager : DisposableIpcService // 6.0.0+
     {
-        private SharedRef<LibHac.FsSrv.Sf.IMultiCommitManager> _baseCommitManager;
+        private ReferenceCountedDisposable<LibHac.FsSrv.Sf.IMultiCommitManager> _baseCommitManager;
 
-        public IMultiCommitManager(ref SharedRef<LibHac.FsSrv.Sf.IMultiCommitManager> baseCommitManager)
+        public IMultiCommitManager(ReferenceCountedDisposable<LibHac.FsSrv.Sf.IMultiCommitManager> baseCommitManager)
         {
-            _baseCommitManager = SharedRef<LibHac.FsSrv.Sf.IMultiCommitManager>.CreateMove(ref baseCommitManager);
+            _baseCommitManager = baseCommitManager;
         }
 
         [CommandHipc(1)] // 6.0.0+
         // Add(object<nn::fssrv::sf::IFileSystem>)
         public ResultCode Add(ServiceCtx context)
         {
-            using SharedRef<LibHac.FsSrv.Sf.IFileSystem> fileSystem = GetObject<IFileSystem>(context, 0).GetBaseFileSystem();
+            IFileSystem fileSystem = GetObject<IFileSystem>(context, 0);
 
-            Result result = _baseCommitManager.Get.Add(ref fileSystem.Ref());
+            Result result = _baseCommitManager.Target.Add(fileSystem.GetBaseFileSystem());
 
             return (ResultCode)result.Value;
         }
@@ -28,7 +27,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs
         // Commit()
         public ResultCode Commit(ServiceCtx context)
         {
-            Result result = _baseCommitManager.Get.Commit();
+            Result result = _baseCommitManager.Target.Commit();
 
             return (ResultCode)result.Value;
         }
@@ -37,7 +36,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs
         {
             if (isDisposing)
             {
-                _baseCommitManager.Destroy();
+                _baseCommitManager?.Dispose();
             }
         }
     }

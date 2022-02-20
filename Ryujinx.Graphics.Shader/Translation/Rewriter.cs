@@ -49,8 +49,7 @@ namespace Ryujinx.Graphics.Shader.Translation
             Operation operation = (Operation)node.Value;
 
             bool isAtomic = operation.Inst.IsAtomic();
-            bool isStg16Or8 = operation.Inst == Instruction.StoreGlobal16 || operation.Inst == Instruction.StoreGlobal8;
-            bool isWrite = isAtomic || operation.Inst == Instruction.StoreGlobal || isStg16Or8;
+            bool isWrite = isAtomic || operation.Inst == Instruction.StoreGlobal;
 
             Operation storageOp;
 
@@ -96,21 +95,14 @@ namespace Ryujinx.Graphics.Shader.Translation
 
             Operand alignMask = Const(-config.GpuAccessor.QueryHostStorageBufferOffsetAlignment());
 
-            Operand baseAddrTrunc = PrependOperation(Instruction.BitwiseAnd, sbBaseAddrLow, alignMask);
-            Operand byteOffset    = PrependOperation(Instruction.Subtract, addrLow, baseAddrTrunc);
+            Operand baseAddrTrunc = PrependOperation(Instruction.BitwiseAnd,    sbBaseAddrLow, alignMask);
+            Operand byteOffset    = PrependOperation(Instruction.Subtract,      addrLow, baseAddrTrunc);
+            Operand wordOffset    = PrependOperation(Instruction.ShiftRightU32, byteOffset, Const(2));
 
             Operand[] sources = new Operand[operation.SourcesCount];
 
             sources[0] = sbSlot;
-
-            if (isStg16Or8)
-            {
-                sources[1] = byteOffset;
-            }
-            else
-            {
-                sources[1] = PrependOperation(Instruction.ShiftRightU32, byteOffset, Const(2));
-            }
+            sources[1] = wordOffset;
 
             for (int index = 2; index < operation.SourcesCount; index++)
             {
@@ -129,14 +121,7 @@ namespace Ryujinx.Graphics.Shader.Translation
             }
             else
             {
-                Instruction storeInst = operation.Inst switch
-                {
-                    Instruction.StoreGlobal16 => Instruction.StoreStorage16,
-                    Instruction.StoreGlobal8 => Instruction.StoreStorage8,
-                    _ => Instruction.StoreStorage
-                };
-
-                storageOp = new Operation(storeInst, null, sources);
+                storageOp = new Operation(Instruction.StoreStorage, null, sources);
             }
 
             for (int index = 0; index < operation.SourcesCount; index++)
@@ -286,7 +271,7 @@ namespace Ryujinx.Graphics.Shader.Translation
             {
                 Operand res = Local();
 
-                node.List.AddBefore(node, new Operation(Instruction.ConvertFP32ToS32, res, value));
+                node.List.AddBefore(node, new Operation(Instruction.ConvertFPToS32, res, value));
 
                 return res;
             }
@@ -295,7 +280,7 @@ namespace Ryujinx.Graphics.Shader.Translation
             {
                 Operand res = Local();
 
-                node.List.AddBefore(node, new Operation(Instruction.ConvertS32ToFP32, res, value));
+                node.List.AddBefore(node, new Operation(Instruction.ConvertS32ToFP, res, value));
 
                 return res;
             }
@@ -501,7 +486,7 @@ namespace Ryujinx.Graphics.Shader.Translation
             // as replacement for SNORM (which is not supported).
             INode[] uses = texOp.Dest.UseOps.ToArray();
 
-            Operation convOp = new Operation(Instruction.ConvertS32ToFP32, Local(), texOp.Dest);
+            Operation convOp = new Operation(Instruction.ConvertS32ToFP, Local(), texOp.Dest);
             Operation normOp = new Operation(Instruction.FP32 | Instruction.Multiply, Local(), convOp.Dest, ConstF(1f / maxPositive));
 
             node = node.List.AddAfter(node, convOp);

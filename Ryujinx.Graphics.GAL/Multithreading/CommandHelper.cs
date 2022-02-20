@@ -111,8 +111,6 @@ namespace Ryujinx.Graphics.GAL.Multithreading
                 TextureCreateViewCommand.Run(ref GetCommand<TextureCreateViewCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.TextureGetData] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 TextureGetDataCommand.Run(ref GetCommand<TextureGetDataCommand>(memory), threaded, renderer);
-            _lookup[(int)CommandType.TextureGetDataSlice] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
-                TextureGetDataSliceCommand.Run(ref GetCommand<TextureGetDataSliceCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.TextureRelease] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 TextureReleaseCommand.Run(ref GetCommand<TextureReleaseCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.TextureSetData] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
@@ -145,8 +143,6 @@ namespace Ryujinx.Graphics.GAL.Multithreading
                 DrawCommand.Run(ref GetCommand<DrawCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.DrawIndexed] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 DrawIndexedCommand.Run(ref GetCommand<DrawIndexedCommand>(memory), threaded, renderer);
-            _lookup[(int)CommandType.DrawTexture] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
-                DrawTextureCommand.Run(ref GetCommand<DrawTextureCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.EndHostConditionalRendering] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 EndHostConditionalRenderingCommand.Run(renderer);
             _lookup[(int)CommandType.EndTransformFeedback] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
@@ -185,12 +181,8 @@ namespace Ryujinx.Graphics.GAL.Multithreading
                 SetLineParametersCommand.Run(ref GetCommand<SetLineParametersCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.SetLogicOpState] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 SetLogicOpStateCommand.Run(ref GetCommand<SetLogicOpStateCommand>(memory), threaded, renderer);
-            _lookup[(int)CommandType.SetPatchParameters] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
-                SetPatchParametersCommand.Run(ref GetCommand<SetPatchParametersCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.SetPointParameters] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 SetPointParametersCommand.Run(ref GetCommand<SetPointParametersCommand>(memory), threaded, renderer);
-            _lookup[(int)CommandType.SetPolygonMode] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
-                SetPolygonModeCommand.Run(ref GetCommand<SetPolygonModeCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.SetPrimitiveRestart] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 SetPrimitiveRestartCommand.Run(ref GetCommand<SetPrimitiveRestartCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.SetPrimitiveTopology] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>

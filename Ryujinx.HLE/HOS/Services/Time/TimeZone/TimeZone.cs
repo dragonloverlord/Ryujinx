@@ -2,7 +2,6 @@
 using Ryujinx.Common.Utilities;
 using Ryujinx.HLE.Utilities;
 using System;
-using System.Buffers.Binary;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -108,24 +107,40 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             public int      TransitionTime;
         }
 
-        private static int Detzcode32(ReadOnlySpan<byte> bytes)
-        {
-            return BinaryPrimitives.ReadInt32BigEndian(bytes);
-        }
-
-        private static int Detzcode32(int value)
+        private static int Detzcode32(byte[] bytes)
         {
             if (BitConverter.IsLittleEndian)
             {
-                return BinaryPrimitives.ReverseEndianness(value);
+                Array.Reverse(bytes, 0, bytes.Length);
             }
 
-            return value;
+            return BitConverter.ToInt32(bytes, 0);
         }
 
-        private static long Detzcode64(ReadOnlySpan<byte> bytes)
+        private static unsafe int Detzcode32(int* data)
         {
-            return BinaryPrimitives.ReadInt64BigEndian(bytes);
+            int result = *data;
+            if (BitConverter.IsLittleEndian)
+            {
+                byte[] bytes = BitConverter.GetBytes(result);
+                Array.Reverse(bytes, 0, bytes.Length);
+                result = BitConverter.ToInt32(bytes, 0);
+            }
+
+            return result;
+        }
+
+        private static unsafe long Detzcode64(long* data)
+        {
+            long result = *data;
+            if (BitConverter.IsLittleEndian)
+            {
+                byte[] bytes = BitConverter.GetBytes(result);
+                Array.Reverse(bytes, 0, bytes.Length);
+                result = BitConverter.ToInt64(bytes, 0);
+            }
+
+            return result;
         }
 
         private static bool DifferByRepeat(long t1, long t0)
@@ -133,7 +148,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             return (t1 - t0) == SecondsPerRepeat;
         }
 
-        private static bool TimeTypeEquals(TimeZoneRule outRules, byte aIndex, byte bIndex)
+        private static unsafe bool TimeTypeEquals(TimeZoneRule outRules, byte aIndex, byte bIndex)
         {
             if (aIndex < 0 || aIndex >= outRules.TypeCount || bIndex < 0 || bIndex >= outRules.TypeCount)
             {
@@ -143,14 +158,17 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             TimeTypeInfo a = outRules.Ttis[aIndex];
             TimeTypeInfo b = outRules.Ttis[bIndex];
 
-            return a.GmtOffset              == b.GmtOffset &&
-                   a.IsDaySavingTime        == b.IsDaySavingTime &&
-                   a.IsStandardTimeDaylight == b.IsStandardTimeDaylight &&
-                   a.IsGMT                  == b.IsGMT &&
-                   StringUtils.CompareCStr(outRules.Chars[a.AbbreviationListIndex..], outRules.Chars[b.AbbreviationListIndex..]) == 0;
+            fixed (char* chars = outRules.Chars)
+            {
+                return a.GmtOffset              == b.GmtOffset &&
+                       a.IsDaySavingTime        == b.IsDaySavingTime &&
+                       a.IsStandardTimeDaylight == b.IsStandardTimeDaylight &&
+                       a.IsGMT                  == b.IsGMT &&
+                       StringUtils.CompareCStr(chars + a.AbbreviationListIndex, chars + b.AbbreviationListIndex) == 0;
+            }
         }
 
-        private static int GetQZName(ReadOnlySpan<char> name, int namePosition, char delimiter)
+        private static int GetQZName(char[] name, int namePosition, char delimiter)
         {
             int i = namePosition;
 
@@ -385,7 +403,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             return 0;
         }
 
-        private static bool ParsePosixName(ReadOnlySpan<char> name, out TimeZoneRule outRules, bool lastDitch)
+        private static bool ParsePosixName(Span<char> name, out TimeZoneRule outRules, bool lastDitch)
         {
             outRules = new TimeZoneRule
             {
@@ -396,10 +414,9 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             };
 
             int        stdLen;
-
-            ReadOnlySpan<char> stdName = name;
-            int namePosition = 0;
-            int stdOffset = 0;
+            Span<char> stdName      = name;
+            int        namePosition = 0;
+            int        stdOffset    = 0;
 
             if (lastDitch)
             {
@@ -416,8 +433,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
 
                     int stdNamePosition = namePosition;
 
-                    namePosition = GetQZName(name, namePosition, '>');
-
+                    namePosition = GetQZName(name.ToArray(), namePosition, '>');
                     if (name[namePosition] != '>')
                     {
                         return false;
@@ -449,7 +465,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             int destLen   = 0;
             int dstOffset = 0;
 
-            ReadOnlySpan<char> destName = name.Slice(namePosition);
+            Span<char> destName = name.Slice(namePosition);
 
             if (TzCharsArraySize < charCount)
             {
@@ -887,7 +903,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             return ParsePosixName(name.ToCharArray(), out outRules, false);
         }
 
-        internal static bool ParseTimeZoneBinary(out TimeZoneRule outRules, Stream inputData)
+        internal static unsafe bool ParseTimeZoneBinary(out TimeZoneRule outRules, Stream inputData)
         {
             outRules = new TimeZoneRule
             {
@@ -951,11 +967,12 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
 
             timeCount = 0;
 
+            fixed (byte* workBufferPtrStart = workBuffer)
             {
-                Span<byte> p = workBuffer;
+                byte* p = workBufferPtrStart;
                 for (int i = 0; i < outRules.TimeCount; i++)
                 {
-                    long at = Detzcode64(p);
+                    long at = Detzcode64((long*)p);
                     outRules.Types[i] = 1;
 
                     if (timeCount != 0 && at <= outRules.Ats[timeCount - 1])
@@ -971,15 +988,13 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
 
                     outRules.Ats[timeCount++] = at;
 
-                    p = p[TimeTypeSize..];
+                    p += TimeTypeSize;
                 }
 
                 timeCount = 0;
                 for (int i = 0; i < outRules.TimeCount; i++)
                 {
-                    byte type = p[0];
-                    p = p[1..];
-
+                    byte type = *p++;
                     if (outRules.TypeCount <= type)
                     {
                         return false;
@@ -996,20 +1011,18 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
                 for (int i = 0; i < outRules.TypeCount; i++)
                 {
                     TimeTypeInfo ttis = outRules.Ttis[i];
-                    ttis.GmtOffset = Detzcode32(p);
-                    p = p[sizeof(int)..];
+                    ttis.GmtOffset = Detzcode32((int*)p);
+                    p += 4;
 
-                    if (p[0] >= 2)
+                    if (*p >= 2)
                     {
                         return false;
                     }
 
-                    ttis.IsDaySavingTime = p[0] != 0;
-                    p = p[1..];
+                    ttis.IsDaySavingTime = *p != 0;
+                    p++;
 
-                    int abbreviationListIndex = p[0];
-                    p = p[1..];
-
+                    int abbreviationListIndex = *p++;
                     if (abbreviationListIndex >= outRules.CharCount)
                     {
                         return false;
@@ -1020,9 +1033,12 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
                     outRules.Ttis[i] = ttis;
                 }
 
-                Encoding.ASCII.GetChars(p[..outRules.CharCount].ToArray()).CopyTo(outRules.Chars.AsSpan());
+                fixed (char* chars = outRules.Chars)
+                {
+                    Encoding.ASCII.GetChars(p, outRules.CharCount, chars, outRules.CharCount);
+                }
 
-                p = p[outRules.CharCount..];
+                p += outRules.CharCount;
                 outRules.Chars[outRules.CharCount] = '\0';
 
                 for (int i = 0; i < outRules.TypeCount; i++)
@@ -1033,14 +1049,14 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
                     }
                     else
                     {
-                        if (p[0] >= 2)
+                        if (*p >= 2)
                         {
                             return false;
                         }
 
-                        outRules.Ttis[i].IsStandardTimeDaylight = p[0] != 0;
-                        p = p[1..];
+                        outRules.Ttis[i].IsStandardTimeDaylight = *p++ != 0;
                     }
+
                 }
 
                 for (int i = 0; i < outRules.TypeCount; i++)
@@ -1051,18 +1067,17 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
                     }
                     else
                     {
-                        if (p[0] >= 2)
+                        if (*p >= 2)
                         {
                             return false;
                         }
 
-                        outRules.Ttis[i].IsGMT = p[0] != 0;
-                        p = p[1..];
+                        outRules.Ttis[i].IsGMT = *p++ != 0;
                     }
 
                 }
 
-                long position = (workBuffer.Length - p.Length);
+                long position = (p - workBufferPtrStart);
                 long nRead    = streamLength - position;
 
                 if (nRead < 0)
@@ -1092,75 +1107,77 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
                         int abbreviationCount = 0;
                         charCount = outRules.CharCount;
 
-                        Span<char> chars = outRules.Chars;
-
-                        for (int i = 0; i < tempRules.TypeCount; i++)
+                        fixed (char* chars = outRules.Chars)
                         {
-                            ReadOnlySpan<char> tempChars = tempRules.Chars;
-                            ReadOnlySpan<char> tempAbbreviation = tempChars[tempRules.Ttis[i].AbbreviationListIndex..];
-
-                            int j;
-
-                            for (j = 0; j < charCount; j++)
+                            for (int i = 0; i < tempRules.TypeCount; i++)
                             {
-                                if (StringUtils.CompareCStr(chars[j..], tempAbbreviation) == 0)
+                                fixed (char* tempChars = tempRules.Chars)
                                 {
-                                    tempRules.Ttis[i].AbbreviationListIndex = j;
-                                    abbreviationCount++;
-                                    break;
-                                }
-                            }
+                                    char* tempAbbreviation = tempChars + tempRules.Ttis[i].AbbreviationListIndex;
+                                    int j;
 
-                            if (j >= charCount)
-                            {
-                                int abbreviationLength = StringUtils.LengthCstr(tempAbbreviation);
-                                if (j + abbreviationLength < TzMaxChars)
-                                {
-                                    for (int x = 0; x < abbreviationLength; x++)
+                                    for (j = 0; j < charCount; j++)
                                     {
-                                        chars[j + x] = tempAbbreviation[x];
+                                        if (StringUtils.CompareCStr(chars + j, tempAbbreviation) == 0)
+                                        {
+                                            tempRules.Ttis[i].AbbreviationListIndex = j;
+                                            abbreviationCount++;
+                                            break;
+                                        }
                                     }
 
-                                    charCount = j + abbreviationLength + 1;
+                                    if (j >= charCount)
+                                    {
+                                        int abbreviationLength = StringUtils.LengthCstr(tempAbbreviation);
+                                        if (j + abbreviationLength < TzMaxChars)
+                                        {
+                                            for (int x = 0; x < abbreviationLength; x++)
+                                            {
+                                                chars[j + x] = tempAbbreviation[x];
+                                            }
 
-                                    tempRules.Ttis[i].AbbreviationListIndex = j;
-                                    abbreviationCount++;
+                                            charCount = j + abbreviationLength + 1;
+
+                                            tempRules.Ttis[i].AbbreviationListIndex = j;
+                                            abbreviationCount++;
+                                        }
+                                    }
                                 }
                             }
-                        }
 
-                        if (abbreviationCount == tempRules.TypeCount)
-                        {
-                            outRules.CharCount = charCount;
-
-                            // Remove trailing
-                            while (1 < outRules.TimeCount && (outRules.Types[outRules.TimeCount - 1] == outRules.Types[outRules.TimeCount - 2]))
+                            if (abbreviationCount == tempRules.TypeCount)
                             {
-                                outRules.TimeCount--;
-                            }
+                                outRules.CharCount = charCount;
 
-                            int i;
-
-                            for (i = 0; i < tempRules.TimeCount; i++)
-                            {
-                                if (outRules.TimeCount == 0 || outRules.Ats[outRules.TimeCount - 1] < tempRules.Ats[i])
+                                // Remove trailing
+                                while (1 < outRules.TimeCount && (outRules.Types[outRules.TimeCount - 1] == outRules.Types[outRules.TimeCount - 2]))
                                 {
-                                    break;
+                                    outRules.TimeCount--;
                                 }
-                            }
 
-                            while (i < tempRules.TimeCount && outRules.TimeCount < TzMaxTimes)
-                            {
-                                outRules.Ats[outRules.TimeCount] = tempRules.Ats[i];
-                                outRules.Types[outRules.TimeCount] = (byte)(outRules.TypeCount + (byte)tempRules.Types[i]);
+                                int i;
 
-                                outRules.TimeCount++;
-                                i++;
-                            }
+                                for (i = 0; i < tempRules.TimeCount; i++)
+                                {
+                                    if (outRules.TimeCount == 0 || outRules.Ats[outRules.TimeCount - 1] < tempRules.Ats[i])
+                                    {
+                                        break;
+                                    }
+                                }
 
-                            for (i = 0; i < tempRules.TypeCount; i++)
-                            {
-                                outRules.Ttis[outRules.TypeCount++] = tempRules.Ttis[i];
+                                while (i < tempRules.TimeCount && outRules.TimeCount < TzMaxTimes)
+                                {
+                                    outRules.Ats[outRules.TimeCount]   = tempRules.Ats[i];
+                                    outRules.Types[outRules.TimeCount] = (byte)(outRules.TypeCount + (byte)tempRules.Types[i]);
+
+                                    outRules.TimeCount++;
+                                    i++;
+                                }
+
+                                for (i = 0; i < tempRules.TypeCount; i++)
+                                {
+                                    outRules.Ttis[outRules.TypeCount++] = tempRules.Ttis[i];
+                                }
                             }
                         }
                     }
@@ -1450,11 +1467,17 @@ namespace Ryujinx.HLE.HOS.Services.Time.TimeZone
             {
                 calendarAdditionalInfo.IsDaySavingTime = rules.Ttis[ttiIndex].IsDaySavingTime;
 
-                ReadOnlySpan<char> timeZoneAbbreviation = rules.Chars.AsSpan()[rules.Ttis[ttiIndex].AbbreviationListIndex..];
-
-                int timeZoneSize = Math.Min(StringUtils.LengthCstr(timeZoneAbbreviation), 8);
-
-                timeZoneAbbreviation[..timeZoneSize].CopyTo(calendarAdditionalInfo.TimezoneName.AsSpan());
+                unsafe
+                {
+                    fixed (char* timeZoneAbbreviation = &rules.Chars[rules.Ttis[ttiIndex].AbbreviationListIndex])
+                    {
+                        int timeZoneSize = Math.Min(StringUtils.LengthCstr(timeZoneAbbreviation), 8);
+                        for (int i = 0; i < timeZoneSize; i++)
+                        {
+                            calendarAdditionalInfo.TimezoneName[i] = timeZoneAbbreviation[i];
+                        }
+                    }
+                }
             }
 
             return result;

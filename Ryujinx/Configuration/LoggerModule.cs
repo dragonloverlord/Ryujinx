@@ -13,7 +13,6 @@ namespace Ryujinx.Configuration
             ConfigurationState.Instance.Logger.EnableInfo.Event        += ReloadEnableInfo;
             ConfigurationState.Instance.Logger.EnableWarn.Event        += ReloadEnableWarning;
             ConfigurationState.Instance.Logger.EnableError.Event       += ReloadEnableError;
-            ConfigurationState.Instance.Logger.EnableTrace.Event       += ReloadEnableTrace;
             ConfigurationState.Instance.Logger.EnableGuest.Event       += ReloadEnableGuest;
             ConfigurationState.Instance.Logger.EnableFsAccessLog.Event += ReloadEnableFsAccessLog;
             ConfigurationState.Instance.Logger.FilteredClasses.Event   += ReloadFilteredClasses;
@@ -45,11 +44,6 @@ namespace Ryujinx.Configuration
             Logger.SetEnable(LogLevel.Error, e.NewValue);
         }
 
-        private static void ReloadEnableTrace(object sender, ReactiveEventArgs<bool> e)
-        {
-            Logger.SetEnable(LogLevel.Trace, e.NewValue);
-        }
-
         private static void ReloadEnableGuest(object sender, ReactiveEventArgs<bool> e)
         {
             Logger.SetEnable(LogLevel.Guest, e.NewValue);
@@ -64,7 +58,7 @@ namespace Ryujinx.Configuration
         {
             bool noFilter = e.NewValue.Length == 0;
 
-            foreach (var logClass in Enum.GetValues<LogClass>())
+            foreach (var logClass in EnumExtensions.GetValues<LogClass>())
             {
                 Logger.SetEnable(logClass, noFilter);
             }

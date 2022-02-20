@@ -1,5 +1,4 @@
 using Ryujinx.Graphics.GAL;
-using Ryujinx.Graphics.Gpu.Engine.Threed;
 
 namespace Ryujinx.Graphics.Gpu.Shader
 {
@@ -34,16 +33,6 @@ namespace Ryujinx.Graphics.Gpu.Shader
         public PrimitiveTopology Topology { get; }
 
         /// <summary>
-        /// Tessellation mode.
-        /// </summary>
-        public TessMode TessellationMode { get; }
-
-        /// <summary>
-        /// Transform feedback information, if the shader uses transform feedback. Otherwise, should be null.
-        /// </summary>
-        public TransformFeedbackDescriptor[] TransformFeedbackDescriptors { get; set; }
-
-        /// <summary>
         /// Creates a new instance of the GPU accessor state.
         /// </summary>
         /// <param name="texturePoolGpuVa">GPU virtual address of the texture pool</param>
@@ -51,22 +40,18 @@ namespace Ryujinx.Graphics.Gpu.Shader
         /// <param name="textureBufferIndex">Constant buffer slot where the texture handles are located</param>
         /// <param name="earlyZForce">Early Z force enable</param>
         /// <param name="topology">Primitive topology</param>
-        /// <param name="tessellationMode">Tessellation mode</param>
         public GpuAccessorState(
             ulong texturePoolGpuVa,
             int texturePoolMaximumId,
             int textureBufferIndex,
             bool earlyZForce,
-            PrimitiveTopology topology,
-            TessMode tessellationMode)
+            PrimitiveTopology topology)
         {
             TexturePoolGpuVa = texturePoolGpuVa;
             TexturePoolMaximumId = texturePoolMaximumId;
             TextureBufferIndex = textureBufferIndex;
             EarlyZForce = earlyZForce;
             Topology = topology;
-            TessellationMode = tessellationMode;
-            TransformFeedbackDescriptors = null;
         }
     }
 }

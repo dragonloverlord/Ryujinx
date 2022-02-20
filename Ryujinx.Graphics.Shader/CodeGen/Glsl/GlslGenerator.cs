@@ -117,12 +117,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             {
                 if (node is AstOperation operation)
                 {
-                    string expr = InstGen.GetExpression(context, operation);
-
-                    if (expr != null)
-                    {
-                        context.AppendLine(expr + ";");
-                    }
+                    context.AppendLine(InstGen.GetExpression(context, operation) + ";");
                 }
                 else if (node is AstAssignment assignment)
                 {
@@ -131,10 +126,9 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
 
                     string dest;
 
-                    if (assignment.Destination is AstOperand operand && operand.Type.IsAttribute())
+                    if (assignment.Destination is AstOperand operand && operand.Type == OperandType.Attribute)
                     {
-                        bool perPatch = operand.Type == OperandType.AttributePerPatch;
-                        dest = OperandManager.GetOutAttributeName(operand.Value, context.Config, perPatch);
+                        dest = OperandManager.GetOutAttributeName(operand.Value, context.Config);
                     }
                     else
                     {

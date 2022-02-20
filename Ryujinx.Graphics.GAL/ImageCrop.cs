@@ -21,7 +21,8 @@ namespace Ryujinx.Graphics.GAL
             bool  flipY,
             bool  isStretched,
             float aspectRatioX,
-            float aspectRatioY)
+            float aspectRatioY
+            )
         {
             Left         = left;
             Right        = right;

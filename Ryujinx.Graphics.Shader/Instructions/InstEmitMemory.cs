@@ -366,33 +366,23 @@ namespace Ryujinx.Graphics.Shader.Instructions
                 Operand value = Register(isRz ? rd : rd + index, RegisterType.Gpr);
                 Operand elemOffset = context.IAdd(wordOffset, Const(index));
 
-                if (isSmallInt && region == MemoryRegion.Local)
+                if (isSmallInt)
                 {
-                    Operand word = context.LoadLocal(elemOffset);
+                    Operand word = null;
+
+                    switch (region)
+                    {
+                        case MemoryRegion.Local: word = context.LoadLocal(elemOffset); break;
+                        case MemoryRegion.Shared: word = context.LoadShared(elemOffset); break;
+                    }
 
                     value = InsertSmallInt(context, (LsSize)size, bitOffset, word, value);
                 }
 
-                if (region == MemoryRegion.Local)
+                switch (region)
                 {
-                    context.StoreLocal(elemOffset, value);
-                }
-                else if (region == MemoryRegion.Shared)
-                {
-                    switch (size)
-                    {
-                        case LsSize2.U8:
-                        case LsSize2.S8:
-                            context.StoreShared8(baseOffset, value);
-                            break;
-                        case LsSize2.U16:
-                        case LsSize2.S16:
-                            context.StoreShared16(baseOffset, value);
-                            break;
-                        default:
-                            context.StoreShared(elemOffset, value);
-                            break;
-                    }
+                    case MemoryRegion.Local: context.StoreLocal(elemOffset, value); break;
+                    case MemoryRegion.Shared: context.StoreShared(elemOffset, value); break;
                 }
             }
         }
@@ -411,6 +401,8 @@ namespace Ryujinx.Graphics.Shader.Instructions
                 return;
             }
 
+            bool isSmallInt = size < LsSize2.B32;
+
             int count = GetVectorCount((LsSize)size);
 
             (Operand addrLow, Operand addrHigh) = Get40BitsAddress(context, new Register(ra, RegisterType.Gpr), extended, offset);
@@ -423,20 +415,14 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
                 Operand value = Register(isRz ? rd : rd + index, RegisterType.Gpr);
 
-                Operand addrLowOffset = context.IAdd(addrLow, Const(index * 4));
+                if (isSmallInt)
+                {
+                    Operand word = context.LoadGlobal(addrLow, addrHigh);
 
-                if (size == LsSize2.U8 || size == LsSize2.S8)
-                {
-                    context.StoreGlobal8(addrLowOffset, addrHigh, value);
+                    value = InsertSmallInt(context, (LsSize)size, bitOffset, word, value);
                 }
-                else if (size == LsSize2.U16 || size == LsSize2.S16)
-                {
-                    context.StoreGlobal16(addrLowOffset, addrHigh, value);
-                }
-                else
-                {
-                    context.StoreGlobal(addrLowOffset, addrHigh, value);
-                }
+
+                context.StoreGlobal(context.IAdd(addrLow, Const(index * 4)), addrHigh, value);
             }
         }
 

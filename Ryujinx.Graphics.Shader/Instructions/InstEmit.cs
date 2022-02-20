@@ -54,11 +54,18 @@ namespace Ryujinx.Graphics.Shader.Instructions
             context.Config.GpuAccessor.Log("Shader instruction Cctlt is not implemented.");
         }
 
+        public static void Cont(EmitterContext context)
+        {
+            InstContUnsup op = context.GetOp<InstContUnsup>();
+
+            context.Config.GpuAccessor.Log("Shader instruction ContUnsup is not implemented.");
+        }
+
         public static void Cset(EmitterContext context)
         {
-            InstCset op = context.GetOp<InstCset>();
+            InstCsetUnsup op = context.GetOp<InstCsetUnsup>();
 
-            context.Config.GpuAccessor.Log("Shader instruction Cset is not implemented.");
+            context.Config.GpuAccessor.Log("Shader instruction CsetUnsup is not implemented.");
         }
 
         public static void Cs2r(EmitterContext context)
@@ -66,6 +73,69 @@ namespace Ryujinx.Graphics.Shader.Instructions
             InstCs2r op = context.GetOp<InstCs2r>();
 
             context.Config.GpuAccessor.Log("Shader instruction Cs2r is not implemented.");
+        }
+
+        public static void DmnmxR(EmitterContext context)
+        {
+            InstDmnmxR op = context.GetOp<InstDmnmxR>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DmnmxR is not implemented.");
+        }
+
+        public static void DmnmxI(EmitterContext context)
+        {
+            InstDmnmxI op = context.GetOp<InstDmnmxI>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DmnmxI is not implemented.");
+        }
+
+        public static void DmnmxC(EmitterContext context)
+        {
+            InstDmnmxC op = context.GetOp<InstDmnmxC>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DmnmxC is not implemented.");
+        }
+
+        public static void DsetR(EmitterContext context)
+        {
+            InstDsetR op = context.GetOp<InstDsetR>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DsetR is not implemented.");
+        }
+
+        public static void DsetI(EmitterContext context)
+        {
+            InstDsetI op = context.GetOp<InstDsetI>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DsetI is not implemented.");
+        }
+
+        public static void DsetC(EmitterContext context)
+        {
+            InstDsetC op = context.GetOp<InstDsetC>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DsetC is not implemented.");
+        }
+
+        public static void DsetpR(EmitterContext context)
+        {
+            InstDsetpR op = context.GetOp<InstDsetpR>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DsetpR is not implemented.");
+        }
+
+        public static void DsetpI(EmitterContext context)
+        {
+            InstDsetpI op = context.GetOp<InstDsetpI>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DsetpI is not implemented.");
+        }
+
+        public static void DsetpC(EmitterContext context)
+        {
+            InstDsetpC op = context.GetOp<InstDsetpC>();
+
+            context.Config.GpuAccessor.Log("Shader instruction DsetpC is not implemented.");
         }
 
         public static void FchkR(EmitterContext context)
@@ -152,6 +222,34 @@ namespace Ryujinx.Graphics.Shader.Instructions
             context.Config.GpuAccessor.Log("Shader instruction ImadspRc is not implemented.");
         }
 
+        public static void ImulR(EmitterContext context)
+        {
+            InstImulR op = context.GetOp<InstImulR>();
+
+            context.Config.GpuAccessor.Log("Shader instruction ImulR is not implemented.");
+        }
+
+        public static void ImulI(EmitterContext context)
+        {
+            InstImulI op = context.GetOp<InstImulI>();
+
+            context.Config.GpuAccessor.Log("Shader instruction ImulI is not implemented.");
+        }
+
+        public static void ImulC(EmitterContext context)
+        {
+            InstImulC op = context.GetOp<InstImulC>();
+
+            context.Config.GpuAccessor.Log("Shader instruction ImulC is not implemented.");
+        }
+
+        public static void Imul32i(EmitterContext context)
+        {
+            InstImul32i op = context.GetOp<InstImul32i>();
+
+            context.Config.GpuAccessor.Log("Shader instruction Imul32i is not implemented.");
+        }
+
         public static void Jcal(EmitterContext context)
         {
             InstJcal op = context.GetOp<InstJcal>();
@@ -213,6 +311,13 @@ namespace Ryujinx.Graphics.Shader.Instructions
             InstP2rC op = context.GetOp<InstP2rC>();
 
             context.Config.GpuAccessor.Log("Shader instruction P2rC is not implemented.");
+        }
+
+        public static void Pcnt(EmitterContext context)
+        {
+            InstPcnt op = context.GetOp<InstPcnt>();
+
+            context.Config.GpuAccessor.Log("Shader instruction Pcnt is not implemented.");
         }
 
         public static void Pexit(EmitterContext context)
@@ -367,6 +472,13 @@ namespace Ryujinx.Graphics.Shader.Instructions
             InstVset op = context.GetOp<InstVset>();
 
             context.Config.GpuAccessor.Log("Shader instruction Vset is not implemented.");
+        }
+
+        public static void Vsetp(EmitterContext context)
+        {
+            InstVsetp op = context.GetOp<InstVsetp>();
+
+            context.Config.GpuAccessor.Log("Shader instruction Vsetp is not implemented.");
         }
 
         public static void Vshl(EmitterContext context)

@@ -27,7 +27,7 @@ namespace ARMeilleure.Translation.PTC
         private const string OuterHeaderMagicString = "PTCohd\0\0";
         private const string InnerHeaderMagicString = "PTCihd\0\0";
 
-        private const uint InternalVersion = 3138; //! To be incremented manually for each change to the ARMeilleure project.
+        private const uint InternalVersion = 2680; //! To be incremented manually for each change to the ARMeilleure project.
 
         private const string ActualDir = "0";
         private const string BackupDir = "1";
@@ -585,7 +585,7 @@ namespace ARMeilleure.Translation.PTC
 
                     translator.RegisterFunction(infoEntry.Address, func);
 
-                    bool isAddressUnique = translator.Functions.TryAdd(infoEntry.Address, infoEntry.GuestSize, func);
+                    bool isAddressUnique = translator.Functions.TryAdd(infoEntry.Address, func);
 
                     Debug.Assert(isAddressUnique, $"The address 0x{infoEntry.Address:X16} is not unique.");
                 }
@@ -815,7 +815,7 @@ namespace ARMeilleure.Translation.PTC
 
                     TranslatedFunction func = translator.Translate(address, item.funcProfile.Mode, item.funcProfile.HighCq);
 
-                    bool isAddressUnique = translator.Functions.TryAdd(address, func.GuestSize, func);
+                    bool isAddressUnique = translator.Functions.TryAdd(address, func);
 
                     Debug.Assert(isAddressUnique, $"The address 0x{address:X16} is not unique.");
 
@@ -960,10 +960,10 @@ namespace ARMeilleure.Translation.PTC
         {
             uint osPlatform = 0u;
 
-            osPlatform |= (OperatingSystem.IsFreeBSD() ? 1u : 0u) << 0;
-            osPlatform |= (OperatingSystem.IsLinux()   ? 1u : 0u) << 1;
-            osPlatform |= (OperatingSystem.IsMacOS()   ? 1u : 0u) << 2;
-            osPlatform |= (OperatingSystem.IsWindows() ? 1u : 0u) << 3;
+            osPlatform |= (RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD) ? 1u : 0u) << 0;
+            osPlatform |= (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)   ? 1u : 0u) << 1;
+            osPlatform |= (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)     ? 1u : 0u) << 2;
+            osPlatform |= (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? 1u : 0u) << 3;
 
             return osPlatform;
         }

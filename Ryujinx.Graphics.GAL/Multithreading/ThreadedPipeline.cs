@@ -83,12 +83,6 @@ namespace Ryujinx.Graphics.GAL.Multithreading
             _renderer.QueueCommand();
         }
 
-        public void DrawTexture(ITexture texture, ISampler sampler, Extents2DF srcRegion, Extents2DF dstRegion)
-        {
-            _renderer.New<DrawTextureCommand>().Set(Ref(texture), Ref(sampler), srcRegion, dstRegion);
-            _renderer.QueueCommand();
-        }
-
         public void EndHostConditionalRendering()
         {
             _renderer.New<EndHostConditionalRenderingCommand>();
@@ -185,21 +179,9 @@ namespace Ryujinx.Graphics.GAL.Multithreading
             _renderer.QueueCommand();
         }
 
-        public void SetPatchParameters(int vertices, ReadOnlySpan<float> defaultOuterLevel, ReadOnlySpan<float> defaultInnerLevel)
-        {
-            _renderer.New<SetPatchParametersCommand>().Set(vertices, defaultOuterLevel, defaultInnerLevel);
-            _renderer.QueueCommand();
-        }
-
         public void SetPointParameters(float size, bool isProgramPointSize, bool enablePointSprite, Origin origin)
         {
             _renderer.New<SetPointParametersCommand>().Set(size, isProgramPointSize, enablePointSprite, origin);
-            _renderer.QueueCommand();
-        }
-
-        public void SetPolygonMode(PolygonMode frontMode, PolygonMode backMode)
-        {
-            _renderer.New<SetPolygonModeCommand>().Set(frontMode, backMode);
             _renderer.QueueCommand();
         }
 
@@ -353,9 +335,9 @@ namespace Ryujinx.Graphics.GAL.Multithreading
             return false;
         }
 
-        public void UpdateRenderScale(ReadOnlySpan<float> scales, int totalCount, int fragmentCount)
+        public void UpdateRenderScale(ShaderStage stage, ReadOnlySpan<float> scales, int textureCount, int imageCount)
         {
-            _renderer.New<UpdateRenderScaleCommand>().Set(_renderer.CopySpan(scales.Slice(0, totalCount)), totalCount, fragmentCount);
+            _renderer.New<UpdateRenderScaleCommand>().Set(stage, _renderer.CopySpan(scales.Slice(0, textureCount + imageCount)), textureCount, imageCount);
             _renderer.QueueCommand();
         }
     }

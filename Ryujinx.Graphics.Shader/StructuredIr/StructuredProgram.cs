@@ -64,24 +64,6 @@ namespace Ryujinx.Graphics.Shader.StructuredIr
                 context.LeaveFunction();
             }
 
-            if (config.TransformFeedbackEnabled)
-            {
-                for (int tfbIndex = 0; tfbIndex < 4; tfbIndex++)
-                {
-                    var locations = config.GpuAccessor.QueryTransformFeedbackVaryingLocations(tfbIndex);
-                    var stride = config.GpuAccessor.QueryTransformFeedbackStride(tfbIndex);
-
-                    for (int j = 0; j < locations.Length; j++)
-                    {
-                        byte location = locations[j];
-                        if (location < 0x80)
-                        {
-                            context.Info.TransformFeedbackOutputs[location] = new TransformFeedbackOutput(tfbIndex, j * 4, stride);
-                        }
-                    }
-                }
-            }
-
             return context.Info;
         }
 
@@ -220,14 +202,6 @@ namespace Ryujinx.Graphics.Shader.StructuredIr
                     break;
                 case Instruction.ShuffleXor:
                     context.Info.HelperFunctionsMask |= HelperFunctionsMask.ShuffleXor;
-                    break;
-                case Instruction.StoreShared16:
-                case Instruction.StoreShared8:
-                    context.Info.HelperFunctionsMask |= HelperFunctionsMask.StoreSharedSmallInt;
-                    break;
-                case Instruction.StoreStorage16:
-                case Instruction.StoreStorage8:
-                    context.Info.HelperFunctionsMask |= HelperFunctionsMask.StoreStorageSmallInt;
                     break;
                 case Instruction.SwizzleAdd:
                     context.Info.HelperFunctionsMask |= HelperFunctionsMask.SwizzleAdd;

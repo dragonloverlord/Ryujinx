@@ -68,7 +68,7 @@ namespace Ryujinx.Memory
 
                 using var writableRegion = GetWritableRegion(va + subOffset, copySize);
 
-                writableRegion.Memory.Span.Fill(value);
+                writableRegion.Memory.Span.Fill(0);
             }
         }
 

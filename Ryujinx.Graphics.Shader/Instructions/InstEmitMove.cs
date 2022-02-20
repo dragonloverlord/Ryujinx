@@ -79,51 +79,12 @@ namespace Ryujinx.Graphics.Shader.Instructions
                     src = Attribute(AttributeConsts.LaneId);
                     break;
 
-                case SReg.InvocationId:
-                    src = Attribute(AttributeConsts.InvocationId);
-                    break;
-
                 case SReg.YDirection:
                     src = ConstF(1); // TODO: Use value from Y direction GPU register.
                     break;
 
                 case SReg.ThreadKill:
                     src = context.Config.Stage == ShaderStage.Fragment ? Attribute(AttributeConsts.ThreadKill) : Const(0);
-                    break;
-
-                case SReg.InvocationInfo:
-                    if (context.Config.Stage != ShaderStage.Compute && context.Config.Stage != ShaderStage.Fragment)
-                    {
-                        Operand primitiveId = Attribute(AttributeConsts.PrimitiveId);
-                        Operand patchVerticesIn;
-
-                        if (context.Config.Stage == ShaderStage.TessellationEvaluation)
-                        {
-                            patchVerticesIn = context.ShiftLeft(Attribute(AttributeConsts.PatchVerticesIn), Const(16));
-                        }
-                        else
-                        {
-                            InputTopology inputTopology = context.Config.GpuAccessor.QueryPrimitiveTopology();
-
-                            int inputVertices = inputTopology switch
-                            {
-                                InputTopology.Points => 1,
-                                InputTopology.Lines or
-                                InputTopology.LinesAdjacency => 2,
-                                InputTopology.Triangles or
-                                InputTopology.TrianglesAdjacency => 3,
-                                _ => 1
-                            };
-
-                            patchVerticesIn = Const(inputVertices << 16);
-                        }
-
-                        src = context.BitwiseOr(primitiveId, patchVerticesIn);
-                    }
-                    else
-                    {
-                        src = Const(0);
-                    }
                     break;
 
                 case SReg.TId:

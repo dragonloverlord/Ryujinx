@@ -1,9 +1,7 @@
 ﻿using ARMeilleure.Translation;
 using ARMeilleure.Translation.PTC;
 using CommandLine;
-using LibHac.Tools.FsSystem;
 using Ryujinx.Audio.Backends.SDL2;
-using Ryujinx.Common;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Configuration.Hid;
 using Ryujinx.Common.Configuration.Hid.Controller;
@@ -30,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 
@@ -58,7 +57,7 @@ namespace Ryujinx.Headless.SDL2
 
         static void Main(string[] args)
         {
-            Version = ReleaseInformations.GetVersion();
+            Version = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
 
             Console.Title = $"Ryujinx Console {Version} (Headless SDL2)";
 
@@ -198,8 +197,6 @@ namespace Ryujinx.Headless.SDL2
                         ControllerType   = ControllerType.JoyconPair,
                         DeadzoneLeft     = 0.1f,
                         DeadzoneRight    = 0.1f,
-                        RangeLeft        = 1.0f,
-                        RangeRight       = 1.0f,
                         TriggerThreshold = 0.5f,
                         LeftJoycon = new LeftJoyconCommonConfig<ConfigGamepadInputId>
                         {
@@ -303,18 +300,6 @@ namespace Ryujinx.Headless.SDL2
 
             Logger.Info?.Print(LogClass.Application, $"{config.PlayerIndex} configured with {inputTypeName} \"{config.Id}\"");
 
-            // If both stick ranges are 0 (usually indicative of an outdated profile load) then both sticks will be set to 1.0.
-            if (config is StandardControllerInputConfig controllerConfig)
-            {
-                if (controllerConfig.RangeLeft <= 0.0f && controllerConfig.RangeRight <= 0.0f)
-                {
-                    controllerConfig.RangeLeft  = 1.0f;
-                    controllerConfig.RangeRight = 1.0f;
-                    
-                    Logger.Info?.Print(LogClass.Application, $"{config.PlayerIndex} stick range reset. Save the profile now to update your configuration");
-                }
-            }
-
             return config;
         }
 
@@ -389,7 +374,6 @@ namespace Ryujinx.Headless.SDL2
             Logger.SetEnable(LogLevel.Info, (bool)option.LoggingEnableInfo);
             Logger.SetEnable(LogLevel.Warning, (bool)option.LoggingEnableWarning);
             Logger.SetEnable(LogLevel.Error, (bool)option.LoggingEnableError);
-            Logger.SetEnable(LogLevel.Trace, (bool)option.LoggingEnableTrace);
             Logger.SetEnable(LogLevel.Guest, (bool)option.LoggingEnableGuest);
             Logger.SetEnable(LogLevel.AccessLog, (bool)option.LoggingEnableFsAccessLog);
 
@@ -476,22 +460,20 @@ namespace Ryujinx.Headless.SDL2
                                                                   (bool)options.EnableVsync,
                                                                   (bool)options.EnableDockedMode,
                                                                   (bool)options.EnablePtc,
-                                                                  (bool)options.EnableInternetAccess,
-                                                                  (bool)options.EnableFsIntegrityChecks ? IntegrityCheckLevel.ErrorOnInvalid : IntegrityCheckLevel.None,
+                                                                  (bool)options.EnableFsIntegrityChecks ? LibHac.FsSystem.IntegrityCheckLevel.ErrorOnInvalid : LibHac.FsSystem.IntegrityCheckLevel.None,
                                                                   options.FsGlobalAccessLogMode,
                                                                   options.SystemTimeOffset,
                                                                   options.SystemTimeZone,
                                                                   options.MemoryManagerMode,
                                                                   (bool)options.IgnoreMissingServices,
-                                                                  options.AspectRatio,
-                                                                  options.AudioVolume);
+                                                                  options.AspectRatio);
 
             return new Switch(configuration);
         }
 
         private static void ExecutionEntrypoint()
         {
-            if (OperatingSystem.IsWindows())
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 _windowsMultimediaTimerResolution = new WindowsMultimediaTimerResolution(1);
             }
@@ -508,11 +490,8 @@ namespace Ryujinx.Headless.SDL2
             _emulationContext.Dispose();
             _window.Dispose();
 
-            if (OperatingSystem.IsWindows())
-            {
-                _windowsMultimediaTimerResolution?.Dispose();
-                _windowsMultimediaTimerResolution = null;
-            }
+            _windowsMultimediaTimerResolution?.Dispose();
+            _windowsMultimediaTimerResolution = null;
         }
 
         private static bool LoadApplication(Options options)

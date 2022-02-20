@@ -268,10 +268,10 @@ namespace Ryujinx.Graphics.GAL.Multithreading
             return handle;
         }
 
-        public IProgram CreateProgram(IShader[] shaders, ShaderInfo info)
+        public IProgram CreateProgram(IShader[] shaders, TransformFeedbackDescriptor[] transformFeedbackDescriptors)
         {
             var program = new ThreadedProgram(this);
-            SourceProgramRequest request = new SourceProgramRequest(program, shaders, info);
+            SourceProgramRequest request = new SourceProgramRequest(program, shaders, transformFeedbackDescriptors);
             Programs.Add(request);
 
             New<CreateProgramCommand>().Set(Ref((IProgramRequest)request));
@@ -355,11 +355,11 @@ namespace Ryujinx.Graphics.GAL.Multithreading
             _baseRenderer.Initialize(logLevel);
         }
 
-        public IProgram LoadProgramBinary(byte[] programBinary, bool hasFragmentShader, ShaderInfo info)
+        public IProgram LoadProgramBinary(byte[] programBinary)
         {
             var program = new ThreadedProgram(this);
 
-            BinaryProgramRequest request = new BinaryProgramRequest(program, programBinary, hasFragmentShader, info);
+            BinaryProgramRequest request = new BinaryProgramRequest(program, programBinary);
             Programs.Add(request);
 
             New<CreateProgramCommand>().Set(Ref((IProgramRequest)request));

@@ -98,7 +98,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             var src = GetSrcReg(context, op.SrcB);
 
-            EmitI2I(context, op.ISrcFmt, op.IDstFmt, src, op.ByteSel, op.Dest, op.AbsB, op.NegB, op.Sat, op.WriteCC);
+            EmitI2I(context, op.ISrcFmt, op.IDstFmt, src, op.ByteSel, op.Dest, op.AbsB, op.NegB, op.Sat);
         }
 
         public static void I2iI(EmitterContext context)
@@ -107,7 +107,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             var src = GetSrcImm(context, Imm20ToSInt(op.Imm20));
 
-            EmitI2I(context, op.ISrcFmt, op.IDstFmt, src, op.ByteSel, op.Dest, op.AbsB, op.NegB, op.Sat, op.WriteCC);
+            EmitI2I(context, op.ISrcFmt, op.IDstFmt, src, op.ByteSel, op.Dest, op.AbsB, op.NegB, op.Sat);
         }
 
         public static void I2iC(EmitterContext context)
@@ -116,7 +116,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             var src = GetSrcCbuf(context, op.CbufSlot, op.CbufOffset);
 
-            EmitI2I(context, op.ISrcFmt, op.IDstFmt, src, op.ByteSel, op.Dest, op.AbsB, op.NegB, op.Sat, op.WriteCC);
+            EmitI2I(context, op.ISrcFmt, op.IDstFmt, src, op.ByteSel, op.Dest, op.AbsB, op.NegB, op.Sat);
         }
 
         private static void EmitF2F(
@@ -176,44 +176,30 @@ namespace Ryujinx.Graphics.Shader.Instructions
             if (dstType == IDstFmt.U64)
             {
                 context.Config.GpuAccessor.Log("Unimplemented 64-bits F2I.");
+                return;
             }
-
-            Instruction fpType = srcType.ToInstFPType();
 
             bool isSignedInt = dstType == IDstFmt.S16 || dstType == IDstFmt.S32 || dstType == IDstFmt.S64;
             bool isSmallInt = dstType == IDstFmt.U16 || dstType == IDstFmt.S16;
 
-            Operand srcB = context.FPAbsNeg(src, absolute, negate, fpType);
+            Operand srcB = context.FPAbsNeg(src, absolute, negate);
 
             srcB = roundingMode switch
             {
-                RoundMode2.Round => context.FPRound(srcB, fpType),
-                RoundMode2.Floor => context.FPFloor(srcB, fpType),
-                RoundMode2.Ceil => context.FPCeiling(srcB, fpType),
-                RoundMode2.Trunc => context.FPTruncate(srcB, fpType),
+                RoundMode2.Round => context.FPRound(srcB),
+                RoundMode2.Floor => context.FPFloor(srcB),
+                RoundMode2.Ceil => context.FPCeiling(srcB),
+                RoundMode2.Trunc => context.FPTruncate(srcB),
                 _ => srcB
             };
 
             if (!isSignedInt)
             {
                 // Negative float to uint cast is undefined, so we clamp the value before conversion.
-                Operand c0 = srcType == DstFmt.F64 ? context.PackDouble2x32(0.0) : ConstF(0);
-
-                srcB = context.FPMaximum(srcB, c0, fpType);
+                srcB = context.FPMaximum(srcB, ConstF(0));
             }
 
-            if (srcType == DstFmt.F64)
-            {
-                srcB = isSignedInt
-                    ? context.FP64ConvertToS32(srcB)
-                    : context.FP64ConvertToU32(srcB);
-            }
-            else
-            {
-                srcB = isSignedInt
-                    ? context.FP32ConvertToS32(srcB)
-                    : context.FP32ConvertToU32(srcB);
-            }
+            srcB = isSignedInt ? context.FPConvertToS32(srcB) : context.FPConvertToU32(srcB);
 
             if (isSmallInt)
             {
@@ -266,18 +252,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
                     : context.BitfieldExtractU32(srcB, Const((int)byteSelection * 8), Const(size));
             }
 
-            if (dstType == DstFmt.F64)
-            {
-                srcB = isSignedInt
-                    ? context.IConvertS32ToFP64(srcB)
-                    : context.IConvertU32ToFP64(srcB);
-            }
-            else
-            {
-                srcB = isSignedInt
-                    ? context.IConvertS32ToFP32(srcB)
-                    : context.IConvertU32ToFP32(srcB);
-            }
+            srcB = isSignedInt ? context.IConvertS32ToFP(srcB) : context.IConvertU32ToFP(srcB);
 
             WriteFP(context, dstType, srcB, rd);
 
@@ -293,8 +268,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
             int rd,
             bool absolute,
             bool negate,
-            bool saturate,
-            bool writeCC)
+            bool saturate)
         {
             if ((srcType & ~ISrcDstFmt.S8) > ISrcDstFmt.U32 || (dstType & ~ISrcDstFmt.S8) > ISrcDstFmt.U32)
             {
@@ -339,7 +313,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             context.Copy(GetDest(rd), src);
 
-            SetZnFlags(context, src, writeCC);
+            // TODO: CC.
         }
 
         private static Operand UnpackReg(EmitterContext context, DstFmt floatType, bool h, int reg)

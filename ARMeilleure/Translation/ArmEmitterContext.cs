@@ -54,11 +54,6 @@ namespace ARMeilleure.Translation
         public bool HighCq { get; }
         public Aarch32Mode Mode { get; }
 
-        private int _ifThenBlockStateIndex = 0;
-        private Condition[] _ifThenBlockState = { };
-        public bool IsInIfThenBlock => _ifThenBlockStateIndex < _ifThenBlockState.Length;
-        public Condition CurrentIfThenBlockCond => _ifThenBlockState[_ifThenBlockStateIndex];
-
         public ArmEmitterContext(
             IMemoryManager memory,
             EntryTable<uint> countTable,
@@ -200,20 +195,6 @@ namespace ARMeilleure.Translation
             }
 
             return default;
-        }
-
-        public void SetIfThenBlockState(Condition[] state)
-        {
-            _ifThenBlockState = state;
-            _ifThenBlockStateIndex = 0;
-        }
-
-        public void AdvanceIfThenBlockState()
-        {
-            if (IsInIfThenBlock)
-            {
-                _ifThenBlockStateIndex++;
-            }
         }
     }
 }

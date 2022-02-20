@@ -24,7 +24,8 @@ namespace Ryujinx.HLE.HOS.Applets
             _system = system;
         }
 
-        public ResultCode Start(AppletSession normalSession, AppletSession interactiveSession)
+        unsafe public ResultCode Start(AppletSession normalSession,
+                                       AppletSession interactiveSession)
         {
             _normalSession = normalSession;
 

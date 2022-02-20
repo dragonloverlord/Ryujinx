@@ -5,21 +5,17 @@
         public ThreadedProgram Threaded { get; set; }
 
         private byte[] _data;
-        private bool _hasFragmentShader;
-        private ShaderInfo _info;
 
-        public BinaryProgramRequest(ThreadedProgram program, byte[] data, bool hasFragmentShader, ShaderInfo info)
+        public BinaryProgramRequest(ThreadedProgram program, byte[] data)
         {
             Threaded = program;
 
             _data = data;
-            _hasFragmentShader = hasFragmentShader;
-            _info = info;
         }
 
         public IProgram Create(IRenderer renderer)
         {
-            return renderer.LoadProgramBinary(_data, _hasFragmentShader, _info);
+            return renderer.LoadProgramBinary(_data);
         }
     }
 }

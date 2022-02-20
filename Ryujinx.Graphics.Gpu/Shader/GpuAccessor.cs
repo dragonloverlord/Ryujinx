@@ -168,30 +168,9 @@ namespace Ryujinx.Graphics.Gpu.Shader
                 PrimitiveTopology.TriangleFan => InputTopology.Triangles,
                 PrimitiveTopology.TrianglesAdjacency or
                 PrimitiveTopology.TriangleStripAdjacency => InputTopology.TrianglesAdjacency,
-                PrimitiveTopology.Patches => _state.TessellationMode.UnpackPatchType() == TessPatchType.Isolines
-                    ? InputTopology.Lines
-                    : InputTopology.Triangles,
-                _ => InputTopology.Points
+                _ => InputTopology.Points,
             };
         }
-
-        /// <summary>
-        /// Queries the tessellation evaluation shader primitive winding order.
-        /// </summary>
-        /// <returns>True if the primitive winding order is clockwise, false if counter-clockwise</returns>
-        public bool QueryTessCw() => _state.TessellationMode.UnpackCw();
-
-        /// <summary>
-        /// Queries the tessellation evaluation shader abstract patch type.
-        /// </summary>
-        /// <returns>Abstract patch type</returns>
-        public TessPatchType QueryTessPatchType() => _state.TessellationMode.UnpackPatchType();
-
-        /// <summary>
-        /// Queries the tessellation evaluation shader spacing between tessellated vertices of the patch.
-        /// </summary>
-        /// <returns>Spacing between tessellated vertices of the patch</returns>
-        public TessSpacing QueryTessSpacing() => _state.TessellationMode.UnpackSpacing();
 
         /// <summary>
         /// Gets the texture descriptor for a given texture on the pool.
@@ -220,35 +199,6 @@ namespace Ryujinx.Graphics.Gpu.Shader
                     handle,
                     cbufSlot);
             }
-        }
-
-        /// <summary>
-        /// Queries transform feedback enable state.
-        /// </summary>
-        /// <returns>True if the shader uses transform feedback, false otherwise</returns>
-        public bool QueryTransformFeedbackEnabled()
-        {
-            return _state.TransformFeedbackDescriptors != null;
-        }
-
-        /// <summary>
-        /// Queries the varying locations that should be written to the transform feedback buffer.
-        /// </summary>
-        /// <param name="bufferIndex">Index of the transform feedback buffer</param>
-        /// <returns>Varying locations for the specified buffer</returns>
-        public ReadOnlySpan<byte> QueryTransformFeedbackVaryingLocations(int bufferIndex)
-        {
-            return _state.TransformFeedbackDescriptors[bufferIndex].VaryingLocations;
-        }
-
-        /// <summary>
-        /// Queries the stride (in bytes) of the per vertex data written into the transform feedback buffer.
-        /// </summary>
-        /// <param name="bufferIndex">Index of the transform feedback buffer</param>
-        /// <returns>Stride for the specified buffer</returns>
-        public int QueryTransformFeedbackStride(int bufferIndex)
-        {
-            return _state.TransformFeedbackDescriptors[bufferIndex].Stride;
         }
 
         /// <summary>

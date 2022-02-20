@@ -1,19 +1,15 @@
 using LibHac;
 using LibHac.Common;
-using LibHac.Common.Keys;
 using LibHac.Fs;
 using LibHac.Fs.Fsa;
 using LibHac.FsSystem;
+using LibHac.FsSystem.NcaUtils;
 using LibHac.Ns;
-using LibHac.Tools.Fs;
-using LibHac.Tools.FsSystem;
-using LibHac.Tools.FsSystem.NcaUtils;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
 using Ryujinx.Configuration.System;
 using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.HOS;
-using Ryujinx.HLE.HOS.SystemState;
 using Ryujinx.HLE.Loaders.Npdm;
 using System;
 using System.Collections.Generic;
@@ -23,7 +19,6 @@ using System.Text;
 using System.Text.Json;
 
 using JsonHelper = Ryujinx.Common.Utilities.JsonHelper;
-using Path = System.IO.Path;
 
 namespace Ryujinx.Ui.App
 {
@@ -111,10 +106,8 @@ namespace Ryujinx.Ui.App
 
         public void ReadControlData(IFileSystem controlFs, Span<byte> outProperty)
         {
-            using var controlFile = new UniqueRef<IFile>();
-
-            controlFs.OpenFile(ref controlFile.Ref(), "/control.nacp".ToU8Span(), OpenMode.Read).ThrowIfFailure();
-            controlFile.Get.Read(out _, 0, outProperty, ReadOption.None).ThrowIfFailure();
+            controlFs.OpenFile(out IFile controlFile, "/control.nacp".ToU8Span(), OpenMode.Read).ThrowIfFailure();
+            controlFile.Read(out _, 0, outProperty, ReadOption.None).ThrowIfFailure();
         }
 
         public void LoadApplications(List<string> appDirs, Language desiredTitleLanguage)
@@ -129,7 +122,7 @@ namespace Ryujinx.Ui.App
 
             foreach (string appDir in appDirs)
             {
-
+                
                 if (!Directory.Exists(appDir))
                 {
                     Logger.Warning?.Print(LogClass.Application, $"The \"game_dirs\" section in \"Config.json\" contains an invalid directory: \"{appDir}\"");
@@ -195,15 +188,12 @@ namespace Ryujinx.Ui.App
                                     {
                                         if (Path.GetExtension(fileEntry.FullPath).ToLower() == ".nca")
                                         {
-                                            using var ncaFile = new UniqueRef<IFile>();
+                                            pfs.OpenFile(out IFile ncaFile, fileEntry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
-                                            pfs.OpenFile(ref ncaFile.Ref(), fileEntry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
-
-                                            Nca nca       = new Nca(_virtualFileSystem.KeySet, ncaFile.Get.AsStorage());
+                                            Nca nca       = new Nca(_virtualFileSystem.KeySet, ncaFile.AsStorage());
                                             int dataIndex = Nca.GetSectionIndexFromType(NcaSectionType.Data, NcaContentType.Program);
 
-                                            // Some main NCAs don't have a data partition, so check if the partition exists before opening it
-                                            if (nca.Header.ContentType == NcaContentType.Program && !(nca.SectionExists(NcaSectionType.Data) && nca.Header.GetFsHeader(dataIndex).IsPatchSection()))
+                                            if (nca.Header.ContentType == NcaContentType.Program && !nca.Header.GetFsHeader(dataIndex).IsPatchSection())
                                             {
                                                 hasMainNca = true;
 
@@ -228,13 +218,11 @@ namespace Ryujinx.Ui.App
                                 {
                                     applicationIcon = _nspIcon;
 
-                                    using var npdmFile = new UniqueRef<IFile>();
-
-                                    Result result = pfs.OpenFile(ref npdmFile.Ref(), "/main.npdm".ToU8Span(), OpenMode.Read);
+                                    Result result = pfs.OpenFile(out IFile npdmFile, "/main.npdm".ToU8Span(), OpenMode.Read);
 
                                     if (ResultFs.PathNotFound.Includes(result))
                                     {
-                                        Npdm npdm = new Npdm(npdmFile.Get.AsStream());
+                                        Npdm npdm = new Npdm(npdmFile.AsStream());
 
                                         titleName = npdm.TitleName;
                                         titleId   = npdm.Aci0.TitleId.ToString("x16");
@@ -255,13 +243,11 @@ namespace Ryujinx.Ui.App
                                     // Read the icon from the ControlFS and store it as a byte array
                                     try
                                     {
-                                        using var icon = new UniqueRef<IFile>();
-
-                                        controlFs.OpenFile(ref icon.Ref(), $"/icon_{_desiredTitleLanguage}.dat".ToU8Span(), OpenMode.Read).ThrowIfFailure();
+                                        controlFs.OpenFile(out IFile icon, $"/icon_{_desiredTitleLanguage}.dat".ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
                                         using (MemoryStream stream = new MemoryStream())
                                         {
-                                            icon.Get.AsStream().CopyTo(stream);
+                                            icon.AsStream().CopyTo(stream);
                                             applicationIcon = stream.ToArray();
                                         }
                                     }
@@ -274,13 +260,11 @@ namespace Ryujinx.Ui.App
                                                 continue;
                                             }
 
-                                            using var icon = new UniqueRef<IFile>();
-
-                                            controlFs.OpenFile(ref icon.Ref(), entry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
+                                            controlFs.OpenFile(out IFile icon, entry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
                                             using (MemoryStream stream = new MemoryStream())
                                             {
-                                                icon.Get.AsStream().CopyTo(stream);
+                                                icon.AsStream().CopyTo(stream);
                                                 applicationIcon = stream.ToArray();
                                             }
 
@@ -378,7 +362,7 @@ namespace Ryujinx.Ui.App
                                 Nca nca       = new Nca(_virtualFileSystem.KeySet, new FileStream(applicationPath, FileMode.Open, FileAccess.Read).AsStorage());
                                 int dataIndex = Nca.GetSectionIndexFromType(NcaSectionType.Data, NcaContentType.Program);
 
-                                if (nca.Header.ContentType != NcaContentType.Program || (nca.SectionExists(NcaSectionType.Data) && nca.Header.GetFsHeader(dataIndex).IsPatchSection()))
+                                if (nca.Header.ContentType != NcaContentType.Program || nca.Header.GetFsHeader(dataIndex).IsPatchSection())
                                 {
                                     numApplicationsFound--;
 
@@ -624,11 +608,10 @@ namespace Ryujinx.Ui.App
                 if (patchNca != null && controlNca != null)
                 {
                     ApplicationControlProperty controlData = new ApplicationControlProperty();
-                    using var nacpFile = new UniqueRef<IFile>();
 
-                    controlNca.OpenFileSystem(NcaSectionType.Data, IntegrityCheckLevel.None).OpenFile(ref nacpFile.Ref(), "/control.nacp".ToU8Span(), OpenMode.Read).ThrowIfFailure();
+                    controlNca.OpenFileSystem(NcaSectionType.Data, IntegrityCheckLevel.None).OpenFile(out IFile nacpFile, "/control.nacp".ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
-                    nacpFile.Get.Read(out _, 0, SpanHelpers.AsByteSpan(ref controlData), ReadOption.None).ThrowIfFailure();
+                    nacpFile.Read(out _, 0, SpanHelpers.AsByteSpan(ref controlData), ReadOption.None).ThrowIfFailure();
 
                     version = controlData.DisplayVersion.ToString();
 

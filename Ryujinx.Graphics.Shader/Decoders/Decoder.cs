@@ -10,25 +10,24 @@ namespace Ryujinx.Graphics.Shader.Decoders
 {
     static class Decoder
     {
-        public static DecodedProgram Decode(ShaderConfig config, ulong startAddress)
+        public static Block[][] Decode(ShaderConfig config, ulong startAddress)
         {
-            Queue<DecodedFunction> functionsQueue = new Queue<DecodedFunction>();
-            Dictionary<ulong, DecodedFunction> functionsVisited = new Dictionary<ulong, DecodedFunction>();
+            List<Block[]> funcs = new List<Block[]>();
 
-            DecodedFunction EnqueueFunction(ulong address)
+            Queue<ulong> funcQueue = new Queue<ulong>();
+            HashSet<ulong> funcVisited = new HashSet<ulong>();
+
+            void EnqueueFunction(ulong funcAddress)
             {
-                if (!functionsVisited.TryGetValue(address, out DecodedFunction function))
+                if (funcVisited.Add(funcAddress))
                 {
-                    functionsVisited.Add(address, function = new DecodedFunction(address));
-                    functionsQueue.Enqueue(function);
+                    funcQueue.Enqueue(funcAddress);
                 }
-
-                return function;
             }
 
-            DecodedFunction mainFunction = EnqueueFunction(0);
+            funcQueue.Enqueue(0);
 
-            while (functionsQueue.TryDequeue(out DecodedFunction currentFunction))
+            while (funcQueue.TryDequeue(out ulong funcAddress))
             {
                 List<Block> blocks = new List<Block>();
                 Queue<Block> workQueue = new Queue<Block>();
@@ -47,7 +46,7 @@ namespace Ryujinx.Graphics.Shader.Decoders
                     return block;
                 }
 
-                GetBlock(currentFunction.Address);
+                GetBlock(funcAddress);
 
                 bool hasNewTarget;
 
@@ -95,7 +94,7 @@ namespace Ryujinx.Graphics.Shader.Decoders
                         if (currBlock.OpCodes.Count != 0)
                         {
                             // We should have blocks for all possible branch targets,
-                            // including those from PBK/PCNT/SSY instructions.
+                            // including those from SSY/PBK instructions.
                             foreach (PushOpInfo pushOp in currBlock.PushOpCodes)
                             {
                                 GetBlock(pushOp.Op.GetAbsoluteAddress());
@@ -109,7 +108,7 @@ namespace Ryujinx.Graphics.Shader.Decoders
 
                             if (lastOp.Name == InstName.Cal)
                             {
-                                EnqueueFunction(lastOp.GetAbsoluteAddress()).AddCaller(currentFunction);
+                                EnqueueFunction(lastOp.GetAbsoluteAddress());
                             }
                             else if (lastOp.Name == InstName.Bra)
                             {
@@ -158,10 +157,10 @@ namespace Ryujinx.Graphics.Shader.Decoders
                 }
                 while (hasNewTarget);
 
-                currentFunction.SetBlocks(blocks.ToArray());
+                funcs.Add(blocks.ToArray());
             }
 
-            return new DecodedProgram(mainFunction, functionsVisited);
+            return funcs.ToArray();
         }
 
         private static bool BinarySearch(List<Block> blocks, ulong address, out int index)
@@ -243,7 +242,7 @@ namespace Ryujinx.Graphics.Shader.Decoders
                 {
                     SetUserAttributeUses(config, op.Name, opCode);
                 }
-                else if (op.Name == InstName.Pbk || op.Name == InstName.Pcnt || op.Name == InstName.Ssy)
+                else if (op.Name == InstName.Ssy || op.Name == InstName.Pbk)
                 {
                     block.AddPushOp(op);
                 }
@@ -263,7 +262,6 @@ namespace Ryujinx.Graphics.Shader.Decoders
             int count = 1;
             bool isStore = false;
             bool indexed = false;
-            bool perPatch = false;
 
             if (name == InstName.Ast)
             {
@@ -271,17 +269,14 @@ namespace Ryujinx.Graphics.Shader.Decoders
                 count = (int)opAst.AlSize + 1;
                 offset = opAst.Imm11;
                 indexed = opAst.Phys;
-                perPatch = opAst.P;
                 isStore = true;
             }
             else if (name == InstName.Ald)
             {
                 InstAld opAld = new InstAld(opCode);
                 count = (int)opAld.AlSize + 1;
-                offset = opAld.Imm11;
                 indexed = opAld.Phys;
-                perPatch = opAld.P;
-                isStore = opAld.O;
+                offset = opAld.Imm11;
             }
             else /* if (name == InstName.Ipa) */
             {
@@ -312,19 +307,12 @@ namespace Ryujinx.Graphics.Shader.Decoders
 
                         if (isStore)
                         {
-                            config.SetOutputUserAttribute(index, perPatch);
+                            config.SetOutputUserAttribute(index);
                         }
                         else
                         {
-                            config.SetInputUserAttribute(index, perPatch);
+                            config.SetInputUserAttribute(index);
                         }
-                    }
-
-                    if (!isStore &&
-                        ((attr >= AttributeConsts.FrontColorDiffuseR && attr < AttributeConsts.ClipDistance0) ||
-                        (attr >= AttributeConsts.TexCoordBase && attr < AttributeConsts.TexCoordEnd)))
-                    {
-                        config.SetUsedFeature(FeatureFlags.FixedFuncAttr);
                     }
                 }
             }
@@ -512,9 +500,8 @@ namespace Ryujinx.Graphics.Shader.Decoders
 
         private enum MergeType
         {
-            Brk,
-            Cont,
-            Sync
+            Brk = 0,
+            Sync = 1
         }
 
         private struct PathBlockState
@@ -630,7 +617,7 @@ namespace Ryujinx.Graphics.Shader.Decoders
                     for (int index = pushOpIndex; index < pushOpsCount; index++)
                     {
                         InstOp currentPushOp = current.PushOpCodes[index].Op;
-                        MergeType pushMergeType = GetMergeTypeFromPush(currentPushOp.Name);
+                        MergeType pushMergeType = currentPushOp.Name == InstName.Ssy ? MergeType.Sync : MergeType.Brk;
                         branchStack.Push((currentPushOp.GetAbsoluteAddress(), pushMergeType));
                     }
                 }
@@ -644,9 +631,9 @@ namespace Ryujinx.Graphics.Shader.Decoders
                 }
 
                 InstOp lastOp = current.GetLastOp();
-                if (IsPopBranch(lastOp.Name))
+                if (lastOp.Name == InstName.Sync || lastOp.Name == InstName.Brk)
                 {
-                    MergeType popMergeType = GetMergeTypeFromPop(lastOp.Name);
+                    MergeType popMergeType = lastOp.Name == InstName.Sync ? MergeType.Sync : MergeType.Brk;
 
                     bool found = true;
                     ulong targetAddress = 0UL;
@@ -663,7 +650,7 @@ namespace Ryujinx.Graphics.Shader.Decoders
                         (targetAddress, mergeType) = branchStack.Pop();
 
                         // Push the target address (this will be used to push the address
-                        // back into the PBK/PCNT/SSY stack when we return from that block),
+                        // back into the SSY/PBK stack when we return from that block),
                         Push(new PathBlockState(targetAddress, mergeType));
                     }
                     while (mergeType != popMergeType);
@@ -705,31 +692,6 @@ namespace Ryujinx.Graphics.Shader.Decoders
                     }
                 }
             }
-        }
-
-        public static bool IsPopBranch(InstName name)
-        {
-            return name == InstName.Brk || name == InstName.Cont || name == InstName.Sync;
-        }
-
-        private static MergeType GetMergeTypeFromPush(InstName name)
-        {
-            return name switch
-            {
-                InstName.Pbk => MergeType.Brk,
-                InstName.Pcnt => MergeType.Cont,
-                _ => MergeType.Sync
-            };
-        }
-
-        private static MergeType GetMergeTypeFromPop(InstName name)
-        {
-            return name switch
-            {
-                InstName.Brk => MergeType.Brk,
-                InstName.Cont => MergeType.Cont,
-                _ => MergeType.Sync
-            };
         }
     }
 }

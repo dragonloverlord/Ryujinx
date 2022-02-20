@@ -3,9 +3,7 @@ using LibHac.Common;
 using LibHac.Fs;
 using LibHac.Fs.Fsa;
 using LibHac.FsSystem;
-using LibHac.Tools.Fs;
-using LibHac.Tools.FsSystem;
-using LibHac.Tools.FsSystem.NcaUtils;
+using LibHac.FsSystem.NcaUtils;
 using Ryujinx.Common.Configuration;
 using Ryujinx.HLE.FileSystem;
 using Ryujinx.Ui.Widgets;
@@ -77,35 +75,21 @@ namespace Ryujinx.Ui.Windows
 
             foreach (DlcContainer dlcContainer in _dlcContainerList)
             {
-                if (File.Exists(dlcContainer.Path))
-                {
-                    // The parent tree item has its own "enabled" check box, but it's the actual
-                    // nca entries that store the enabled / disabled state. A bit of a UI inconsistency.
-                    // Maybe a tri-state check box would be better, but for now we check the parent
-                    // "enabled" box if all child NCAs are enabled. Usually fine since each nsp has only one nca.
-                    bool areAllContentPacksEnabled = dlcContainer.DlcNcaList.TrueForAll((nca) => nca.Enabled);
-                    TreeIter parentIter = ((TreeStore)_dlcTreeView.Model).AppendValues(areAllContentPacksEnabled, "", dlcContainer.Path);
-                    using FileStream containerFile = File.OpenRead(dlcContainer.Path);
-                    PartitionFileSystem pfs = new PartitionFileSystem(containerFile.AsStorage());
-                    _virtualFileSystem.ImportTickets(pfs);
+                TreeIter parentIter = ((TreeStore)_dlcTreeView.Model).AppendValues(false, "", dlcContainer.Path);
 
-                    foreach (DlcNca dlcNca in dlcContainer.DlcNcaList)
+                using FileStream containerFile = File.OpenRead(dlcContainer.Path);
+                PartitionFileSystem pfs = new PartitionFileSystem(containerFile.AsStorage());
+                _virtualFileSystem.ImportTickets(pfs);
+
+                foreach (DlcNca dlcNca in dlcContainer.DlcNcaList)
+                {
+                    pfs.OpenFile(out IFile ncaFile, dlcNca.Path.ToU8Span(), OpenMode.Read).ThrowIfFailure();
+                    Nca nca = TryCreateNca(ncaFile.AsStorage(), dlcContainer.Path);
+                    
+                    if (nca != null)
                     {
-                        using var ncaFile = new UniqueRef<IFile>();
-
-                        pfs.OpenFile(ref ncaFile.Ref(), dlcNca.Path.ToU8Span(), OpenMode.Read).ThrowIfFailure();
-                        Nca nca = TryCreateNca(ncaFile.Get.AsStorage(), dlcContainer.Path);
-
-                        if (nca != null)
-                        {
-                            ((TreeStore)_dlcTreeView.Model).AppendValues(parentIter, dlcNca.Enabled, nca.Header.TitleId.ToString("X16"), dlcNca.Path);
-                        }
+                        ((TreeStore)_dlcTreeView.Model).AppendValues(parentIter, dlcNca.Enabled, nca.Header.TitleId.ToString("X16"), dlcNca.Path);
                     }
-                }
-                else
-                {
-                    // DLC file moved or renamed. Allow the user to remove it without crashing the whole dialog.
-                    TreeIter parentIter = ((TreeStore)_dlcTreeView.Model).AppendValues(false, "", $"(MISSING) {dlcContainer.Path}");
                 }
             }
         }
@@ -159,11 +143,9 @@ namespace Ryujinx.Ui.Windows
 
                         foreach (DirectoryEntryEx fileEntry in pfs.EnumerateEntries("/", "*.nca"))
                         {
-                            using var ncaFile = new UniqueRef<IFile>();
+                            pfs.OpenFile(out IFile ncaFile, fileEntry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
-                            pfs.OpenFile(ref ncaFile.Ref(), fileEntry.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
-
-                            Nca nca = TryCreateNca(ncaFile.Get.AsStorage(), containerPath);
+                            Nca nca = TryCreateNca(ncaFile.AsStorage(), containerPath);
 
                             if (nca == null) continue;
 

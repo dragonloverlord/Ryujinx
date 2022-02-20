@@ -13,7 +13,6 @@ namespace Ryujinx.Graphics.Texture
 
         public readonly int[] AllOffsets;
         public readonly int[] SliceSizes;
-        public readonly int[] LevelSizes;
         public int LayerSize { get; }
         public int TotalSize { get; }
 
@@ -22,7 +21,6 @@ namespace Ryujinx.Graphics.Texture
             _mipOffsets = new int[] { 0 };
             AllOffsets  = new int[] { 0 };
             SliceSizes  = new int[] { size };
-            LevelSizes  = new int[] { size };
             _depth      = 1;
             _levels     = 1;
             LayerSize   = size;
@@ -34,7 +32,6 @@ namespace Ryujinx.Graphics.Texture
             int[] mipOffsets,
             int[] allOffsets,
             int[] sliceSizes,
-            int[] levelSizes,
             int   depth,
             int   levels,
             int   layerSize,
@@ -44,7 +41,6 @@ namespace Ryujinx.Graphics.Texture
             _mipOffsets = mipOffsets;
             AllOffsets  = allOffsets;
             SliceSizes  = sliceSizes;
-            LevelSizes  = levelSizes;
             _depth      = depth;
             _levels     = levels;
             LayerSize   = layerSize;
@@ -103,8 +99,7 @@ namespace Ryujinx.Graphics.Texture
             {
                 for (int i = 0; i < _mipOffsets.Length; i++)
                 {
-                    int maxSize = TotalSize - _mipOffsets[i];
-                    yield return new Region(_mipOffsets[i], Math.Min(maxSize, LevelSizes[i]));
+                    yield return new Region(_mipOffsets[i], SliceSizes[i]);
                 }
             }
             else

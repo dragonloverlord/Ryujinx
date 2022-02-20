@@ -13,19 +13,12 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd
     [Service("nsd:u")] // Max sessions: 20
     class IManager : IpcService
     {
-        public static readonly NsdSettings NsdSettings;
+        private readonly NsdSettings  _nsdSettings;
         private readonly FqdnResolver _fqdnResolver;
 
         private bool _isInitialized = false;
 
         public IManager(ServiceCtx context)
-        {
-            _fqdnResolver = new FqdnResolver();
-
-            _isInitialized = true;
-        }
-
-        static IManager()
         {
             // TODO: Load nsd settings through the savedata 0x80000000000000B0 (nsdsave:/).
 
@@ -39,12 +32,16 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd
                 // return ResultCode.InvalidSettingsValue;
             }
 
-            NsdSettings = new NsdSettings
+            _nsdSettings = new NsdSettings
             {
                 Initialized = true,
-                TestMode = (bool)testMode,
+                TestMode    = (bool)testMode,
                 Environment = (string)environmentIdentifier
             };
+
+            _fqdnResolver = new FqdnResolver(_nsdSettings);
+
+            _isInitialized = true;
         }
 
         [CommandHipc(5)] // 11.0.0+
@@ -110,7 +107,7 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd
             {
                 NxSettings.Settings.TryGetValue("nsd!environment_identifier", out object environmentIdentifier);
 
-                if ((string)environmentIdentifier == NsdSettings.Environment)
+                if ((string)environmentIdentifier == _nsdSettings.Environment)
                 {
                     // TODO: Call nn::fs::DeleteSystemFile() to delete the savedata file and return ResultCode.
                 }
@@ -301,7 +298,7 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd
                 }
             */
 
-            if (!NsdSettings.TestMode)
+            if (!_nsdSettings.TestMode)
             {
                 return ResultCode.InvalidSettingsValue;
             }
@@ -330,7 +327,7 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd
                 }
             */
 
-            if (!NsdSettings.TestMode)
+            if (!_nsdSettings.TestMode)
             {
                 return ResultCode.InvalidSettingsValue;
             }

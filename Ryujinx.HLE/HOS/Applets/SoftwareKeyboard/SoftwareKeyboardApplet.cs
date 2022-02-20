@@ -66,7 +66,8 @@ namespace Ryujinx.HLE.HOS.Applets
             _device = system.Device;
         }
 
-        public ResultCode Start(AppletSession normalSession, AppletSession interactiveSession)
+        public ResultCode Start(AppletSession normalSession,
+                                AppletSession interactiveSession)
         {
             lock (_lock)
             {
@@ -170,9 +171,7 @@ namespace Ryujinx.HLE.HOS.Applets
         {
             _npads?.Update();
 
-            _keyboardRenderer?.SetSurfaceInfo(surfaceInfo);
-
-            return _keyboardRenderer?.DrawTo(destination, position) ?? false;
+            return _keyboardRenderer?.DrawTo(surfaceInfo, destination, position) ?? false;
         }
 
         private void ExecuteForegroundKeyboard()

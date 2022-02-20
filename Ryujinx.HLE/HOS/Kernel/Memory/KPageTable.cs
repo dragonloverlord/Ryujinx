@@ -86,7 +86,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
         }
 
         /// <inheritdoc/>
-        protected override KernelResult MapPages(ulong dstVa, ulong pagesCount, ulong srcPa, KMemoryPermission permission, bool shouldFillPages, byte fillValue)
+        protected override KernelResult MapPages(ulong dstVa, ulong pagesCount, ulong srcPa, KMemoryPermission permission)
         {
             ulong size = pagesCount * PageSize;
 
@@ -99,16 +99,11 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
                 Context.MemoryManager.IncrementPagesReferenceCount(srcPa, pagesCount);
             }
 
-            if (shouldFillPages)
-            {
-                _cpuMemory.Fill(dstVa, size, fillValue);
-            }
-
             return KernelResult.Success;
         }
 
         /// <inheritdoc/>
-        protected override KernelResult MapPages(ulong address, KPageList pageList, KMemoryPermission permission, bool shouldFillPages, byte fillValue)
+        protected override KernelResult MapPages(ulong address, KPageList pageList, KMemoryPermission permission)
         {
             using var scopedPageList = new KScopedPageList(Context.MemoryManager, pageList);
 
@@ -122,11 +117,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
                 Context.Memory.Commit(addr, size);
 
                 _cpuMemory.Map(currentVa, Context.Memory.GetPointer(addr, size), size);
-
-                if (shouldFillPages)
-                {
-                    _cpuMemory.Fill(currentVa, size, fillValue);
-                }
 
                 currentVa += size;
             }

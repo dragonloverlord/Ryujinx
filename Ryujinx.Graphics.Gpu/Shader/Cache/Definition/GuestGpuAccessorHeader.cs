@@ -50,14 +50,9 @@ namespace Ryujinx.Graphics.Gpu.Shader.Cache.Definition
         public InputTopology PrimitiveTopology;
 
         /// <summary>
-        /// Tessellation parameters (packed to fit on a byte).
-        /// </summary>
-        public byte TessellationModePacked;
-
-        /// <summary>
         /// Unused/reserved.
         /// </summary>
-        public byte Reserved2;
+        public ushort Reserved2;
 
         /// <summary>
         /// GPU boolean state that can influence shader compilation.

@@ -15,7 +15,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 {
     class NvHostChannelDeviceFile : NvDeviceFile
     {
-        private static readonly ConcurrentDictionary<ulong, Host1xContext> _host1xContextRegistry = new();
+        private static readonly ConcurrentDictionary<long, Host1xContext> _host1xContextRegistry = new();
 
         private const uint MaxModuleSyncpoint = 16;
 
@@ -45,7 +45,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
         private NvFence _channelSyncpoint;
 
-        public NvHostChannelDeviceFile(ServiceCtx context, IVirtualMemoryManager memory, ulong owner) : base(context, owner)
+        public NvHostChannelDeviceFile(ServiceCtx context, IVirtualMemoryManager memory, long owner) : base(context, owner)
         {
             _device        = context.Device;
             _memory        = memory;
@@ -143,12 +143,13 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
         private NvInternalResult Submit(Span<byte> arguments)
         {
-            SubmitArguments     submitHeader    = GetSpanAndSkip<SubmitArguments>(ref arguments, 1)[0];
-            Span<CommandBuffer> commandBuffers  = GetSpanAndSkip<CommandBuffer>(ref arguments, submitHeader.CmdBufsCount);
-            Span<Reloc>         relocs          = GetSpanAndSkip<Reloc>(ref arguments, submitHeader.RelocsCount);
-            Span<uint>          relocShifts     = GetSpanAndSkip<uint>(ref arguments, submitHeader.RelocsCount);
-            Span<SyncptIncr>    syncptIncrs     = GetSpanAndSkip<SyncptIncr>(ref arguments, submitHeader.SyncptIncrsCount);
-            Span<uint>          fenceThresholds = GetSpanAndSkip<uint>(ref arguments, submitHeader.FencesCount);
+            SubmitArguments     submitHeader   = GetSpanAndSkip<SubmitArguments>(ref arguments, 1)[0];
+            Span<CommandBuffer> commandBuffers = GetSpanAndSkip<CommandBuffer>(ref arguments, submitHeader.CmdBufsCount);
+            Span<Reloc>         relocs         = GetSpanAndSkip<Reloc>(ref arguments, submitHeader.RelocsCount);
+            Span<uint>          relocShifts    = GetSpanAndSkip<uint>(ref arguments, submitHeader.RelocsCount);
+            Span<SyncptIncr>    syncptIncrs    = GetSpanAndSkip<SyncptIncr>(ref arguments, submitHeader.SyncptIncrsCount);
+            Span<SyncptIncr>    waitChecks     = GetSpanAndSkip<SyncptIncr>(ref arguments, submitHeader.SyncptIncrsCount); // ?
+            Span<Fence>         fences         = GetSpanAndSkip<Fence>(ref arguments, submitHeader.FencesCount);
 
             lock (_device)
             {
@@ -158,7 +159,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
 
                     uint id = syncptIncr.Id;
 
-                    fenceThresholds[i] = Context.Device.System.HostSyncpoint.IncrementSyncpointMax(id, syncptIncr.Incrs);
+                    fences[i].Id = id;
+                    fences[i].Thresh = Context.Device.System.HostSyncpoint.IncrementSyncpointMax(id, syncptIncr.Incrs);
                 }
 
                 foreach (CommandBuffer commandBuffer in commandBuffers)
@@ -170,6 +172,14 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
                     _host1xContext.Host1x.Submit(MemoryMarshal.Cast<byte, int>(data), _contextId);
                 }
             }
+
+            fences[0].Thresh = Context.Device.System.HostSyncpoint.IncrementSyncpointMax(fences[0].Id, 1);
+
+            Span<int> tmpCmdBuff = stackalloc int[1];
+
+            tmpCmdBuff[0] = (4 << 28) | (int)fences[0].Id;
+
+            _host1xContext.Host1x.Submit(tmpCmdBuff, _contextId);
 
             return NvInternalResult.Success;
         }
@@ -542,23 +552,11 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostChannel
         {
             _host1xContext.Host1x.DestroyContext(_contextId);
             Channel.Dispose();
-
-            for (int i = 0; i < MaxModuleSyncpoint; i++)
-            {
-                if (ChannelSyncpoints[i] != 0)
-                {
-                    _device.System.HostSyncpoint.ReleaseSyncpoint(ChannelSyncpoints[i]);
-                    ChannelSyncpoints[i] = 0;
-                }
-            }
-
-            _device.System.HostSyncpoint.ReleaseSyncpoint(_channelSyncpoint.Id);
-            _channelSyncpoint.Id = 0;
         }
 
-        private static Host1xContext GetHost1XContext(GpuContext gpu, ulong pid)
+        private static Host1xContext GetHost1XContext(GpuContext gpu, long pid)
         {
-            return _host1xContextRegistry.GetOrAdd(pid, (ulong key) => new Host1xContext(gpu, key));
+            return _host1xContextRegistry.GetOrAdd(pid, (long key) => new Host1xContext(gpu, key));
         }
 
         public static void Destroy()

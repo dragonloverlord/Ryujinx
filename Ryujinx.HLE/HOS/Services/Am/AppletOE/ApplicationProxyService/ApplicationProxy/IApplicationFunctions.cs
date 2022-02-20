@@ -116,7 +116,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
 
             ref ApplicationControlProperty control = ref controlHolder.Value;
 
-            if (LibHac.Common.Utilities.IsZeros(controlHolder.ByteSpan))
+            if (LibHac.Utilities.IsZeros(controlHolder.ByteSpan))
             {
                 // If the current application doesn't have a loaded control property, create a dummy one
                 // and set the savedata sizes so a user savedata will be created.
@@ -151,7 +151,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             int  supportedLanguages  = (int)context.Device.Application.ControlData.Value.SupportedLanguages;
             int  firstSupported      = BitOperations.TrailingZeroCount(supportedLanguages);
 
-            if (firstSupported > (int)SystemState.TitleLanguage.BrazilianPortuguese)
+            if (firstSupported > (int)SystemState.TitleLanguage.Chinese)
             {
                 Logger.Warning?.Print(LogClass.ServiceAm, "Application has zero supported languages");
 
@@ -326,19 +326,6 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             context.ResponseData.Write(0L);
 
             Logger.Stub?.PrintStub(LogClass.ServiceAm);
-
-            return ResultCode.Success;
-        }
-
-        [CommandHipc(60)] // 2.0.0+
-        // SetMediaPlaybackStateForApplication(bool enabled)
-        public ResultCode SetMediaPlaybackStateForApplication(ServiceCtx context)
-        {
-            bool enabled = context.RequestData.ReadBoolean();
-
-            // NOTE: Service stores the "enabled" value in a private field, when enabled is false, it stores nn::os::GetSystemTick() too.
-
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { enabled });
 
             return ResultCode.Success;
         }
@@ -591,7 +578,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         {
             // NOTE: IStorage are pushed in the channel with IApplicationAccessor PushToFriendInvitationStorageChannel
             //       If _friendInvitationStorageChannelEvent is signaled, the event is cleared.
-            //       If an IStorage is available, returns it with ResultCode.Success.
+            //       If an IStorage is available, returns it with ResultCode.Success. 
             //       If not, just returns ResultCode.NotAvailable. Since we don't support friend feature for now, it's fine to do the same.
 
             Logger.Stub?.PrintStub(LogClass.ServiceAm);

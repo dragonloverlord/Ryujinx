@@ -217,18 +217,6 @@ namespace ARMeilleure.Instructions
             }
         }
 
-        public static void Fcvtms_V(ArmEmitterContext context)
-        {
-            if (Optimizations.UseSse41)
-            {
-                EmitSse41FcvtsOpF(context, FPRoundingMode.TowardsMinusInfinity, scalar: false);
-            }
-            else
-            {
-                EmitFcvt(context, (op1) => EmitUnaryMathCall(context, nameof(Math.Floor), op1), signed: true, scalar: false);
-            }
-        }
-
         public static void Fcvtmu_Gp(ArmEmitterContext context)
         {
             if (Optimizations.UseSse41)
@@ -311,18 +299,6 @@ namespace ARMeilleure.Instructions
                 }
 
                 context.Copy(d, res);
-            }
-        }
-
-        public static void Fcvtns_Gp(ArmEmitterContext context)
-        {
-            if (Optimizations.UseSse41)
-            {
-                EmitSse41Fcvts_Gp(context, FPRoundingMode.ToNearest, isFixed: false);
-            }
-            else
-            {
-                EmitFcvt_s_Gp(context, (op1) => EmitRoundMathCall(context, MidpointRounding.ToEven, op1));
             }
         }
 

@@ -2,36 +2,26 @@ namespace Ryujinx.Graphics.GAL
 {
     public struct Capabilities
     {
-        public readonly bool HasFrontFacingBug;
-        public readonly bool HasVectorIndexingBug;
+        public bool HasFrontFacingBug { get; }
+        public bool HasVectorIndexingBug { get; }
 
-        public readonly bool SupportsAstcCompression;
-        public readonly bool Supports3DTextureCompression;
-        public readonly bool SupportsBgraFormat;
-        public readonly bool SupportsR4G4Format;
-        public readonly bool SupportsFragmentShaderInterlock;
-        public readonly bool SupportsFragmentShaderOrderingIntel;
-        public readonly bool SupportsImageLoadFormatted;
-        public readonly bool SupportsMismatchingViewFormat;
-        public readonly bool SupportsNonConstantTextureOffset;
-        public readonly bool SupportsShaderBallot;
-        public readonly bool SupportsTextureShadowLod;
-        public readonly bool SupportsViewportSwizzle;
-        public readonly bool SupportsIndirectParameters;
+        public bool SupportsAstcCompression { get; }
+        public bool SupportsImageLoadFormatted { get; }
+        public bool SupportsMismatchingViewFormat { get; }
+        public bool SupportsNonConstantTextureOffset { get; }
+        public bool SupportsShaderBallot { get; }
+        public bool SupportsTextureShadowLod { get; }
+        public bool SupportsViewportSwizzle { get; }
+        public bool SupportsIndirectParameters { get; }
 
-        public readonly int MaximumComputeSharedMemorySize;
-        public readonly float MaximumSupportedAnisotropy;
-        public readonly int StorageBufferOffsetAlignment;
+        public int MaximumComputeSharedMemorySize { get; }
+        public float MaximumSupportedAnisotropy { get; }
+        public int StorageBufferOffsetAlignment { get; }
 
         public Capabilities(
             bool hasFrontFacingBug,
             bool hasVectorIndexingBug,
             bool supportsAstcCompression,
-            bool supports3DTextureCompression,
-            bool supportsBgraFormat,
-            bool supportsR4G4Format,
-            bool supportsFragmentShaderInterlock,
-            bool supportsFragmentShaderOrderingIntel,
             bool supportsImageLoadFormatted,
             bool supportsMismatchingViewFormat,
             bool supportsNonConstantTextureOffset,
@@ -46,11 +36,6 @@ namespace Ryujinx.Graphics.GAL
             HasFrontFacingBug = hasFrontFacingBug;
             HasVectorIndexingBug = hasVectorIndexingBug;
             SupportsAstcCompression = supportsAstcCompression;
-            Supports3DTextureCompression = supports3DTextureCompression;
-            SupportsBgraFormat = supportsBgraFormat;
-            SupportsR4G4Format = supportsR4G4Format;
-            SupportsFragmentShaderInterlock = supportsFragmentShaderInterlock;
-            SupportsFragmentShaderOrderingIntel = supportsFragmentShaderOrderingIntel;
             SupportsImageLoadFormatted = supportsImageLoadFormatted;
             SupportsMismatchingViewFormat = supportsMismatchingViewFormat;
             SupportsNonConstantTextureOffset = supportsNonConstantTextureOffset;

@@ -1,23 +1,22 @@
 ﻿using LibHac;
-using LibHac.Common;
 using LibHac.FsSrv;
 
 namespace Ryujinx.HLE.HOS.Services.Fs
 {
     class IDeviceOperator : DisposableIpcService
     {
-        private SharedRef<LibHac.FsSrv.Sf.IDeviceOperator> _baseOperator;
+        private ReferenceCountedDisposable<LibHac.FsSrv.Sf.IDeviceOperator> _baseOperator;
 
-        public IDeviceOperator(ref SharedRef<LibHac.FsSrv.Sf.IDeviceOperator> baseOperator)
+        public IDeviceOperator(ReferenceCountedDisposable<LibHac.FsSrv.Sf.IDeviceOperator> baseOperator)
         {
-            _baseOperator = SharedRef<LibHac.FsSrv.Sf.IDeviceOperator>.CreateMove(ref baseOperator);
+            _baseOperator = baseOperator;
         }
 
         [CommandHipc(0)]
         // IsSdCardInserted() -> b8 is_inserted
         public ResultCode IsSdCardInserted(ServiceCtx context)
         {
-            Result result = _baseOperator.Get.IsSdCardInserted(out bool isInserted);
+            Result result = _baseOperator.Target.IsSdCardInserted(out bool isInserted);
 
             context.ResponseData.Write(isInserted);
 
@@ -28,7 +27,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs
         // IsGameCardInserted() -> b8 is_inserted
         public ResultCode IsGameCardInserted(ServiceCtx context)
         {
-            Result result = _baseOperator.Get.IsGameCardInserted(out bool isInserted);
+            Result result = _baseOperator.Target.IsGameCardInserted(out bool isInserted);
 
             context.ResponseData.Write(isInserted);
 
@@ -39,7 +38,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs
         // GetGameCardHandle() -> u32 gamecard_handle
         public ResultCode GetGameCardHandle(ServiceCtx context)
         {
-            Result result = _baseOperator.Get.GetGameCardHandle(out GameCardHandle handle);
+            Result result = _baseOperator.Target.GetGameCardHandle(out GameCardHandle handle);
 
             context.ResponseData.Write(handle.Value);
 
@@ -50,7 +49,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs
         {
             if (isDisposing)
             {
-                _baseOperator.Destroy();
+                _baseOperator?.Dispose();
             }
         }
     }
